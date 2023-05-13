@@ -18,10 +18,13 @@ export default {
   ),
   head: ({ title, meta }) => (
     <>
-      <title>{title} - Tanner Aslan</title>
+      <title>
+        {meta.title === "About" ? "Tanner Aslan" : `${title} - Tanner Aslan`}
+      </title>
       {meta.description && (
         <meta name="description" content={meta.description} />
       )}
+      {meta.title && <meta name="title" content={meta.title} />}
       {meta.tag && <meta name="keywords" content={meta.tag} />}
       {meta.author && <meta name="author" content={meta.author} />}
     </>
