@@ -6,7 +6,7 @@
   --default-font-family: var(--font-sans) !important;
 }
 
-a {
+.no-underline a {
   text-decoration: none !important;
 }
 

@@ -34,7 +34,7 @@ export default function Layout({
           <div className="space-y-4 flex  flex-col mt-8">
             {posts.map((item) =>
               item.frontMatter ? (
-                <Link href={item.route}>
+                <Link href={item.route} className="!no-underline">
                   <Card className="hover:bg-gray-3 relative">
                     {item.frontMatter.image ? (
                       <Image
@@ -51,10 +51,10 @@ export default function Layout({
                           item.frontMatter.image ? "col-span-3" : "col-span-5"
                         }
                       >
-                        <div className="text-lg pb-2 font-bold">
+                        <div className="no-underline	 text-lg pb-2 font-bold">
                           {item.frontMatter.title}
                         </div>
-                        <div className="text-sm text-gray-11">
+                        <div className="no-underline	 text-sm text-gray-11">
                           {truncate(item.frontMatter.description, {
                             length: 140,
                           })}
