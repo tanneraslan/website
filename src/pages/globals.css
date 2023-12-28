@@ -9,3 +9,9 @@
 a {
   text-decoration: none !important;
 }
+
+h1 {
+  font-size: 48px !important;
+  font-weight: 500 !important;
+  margin-bottom: 1rem !important;
+}
