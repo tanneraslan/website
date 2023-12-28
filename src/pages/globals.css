@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  --default-font-family: var(--font-sans) !important;
+}
+
+a {
+  text-decoration: none !important;
+}

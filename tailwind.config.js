@@ -1,19 +1,24 @@
+const { join } = require("path");
+import { radixThemePreset } from "radix-themes-tw";
+const { createPlugin } = require("windy-radix-palette");
+const colors = createPlugin();
+
+console.log("radixThemePreset", radixThemePreset);
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    join(__dirname, "./src/**/*.{js,ts,jsx,tsx,mdx}"),
+
+    join(__dirname, "./src/**/*.{js,jsx,ts,tsx,md,mdx}"),
   ],
   theme: {
+    darkMode: "class",
     extend: {
-      backgroundImage: {
-        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "gradient-conic":
-          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+      fontFamily: {
+        sans: ["var(--font-sans)"],
       },
+      ...radixThemePreset.theme,
     },
   },
-  plugins: [],
+  plugins: [radixThemePreset],
 };

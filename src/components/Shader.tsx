@@ -1,6 +1,5 @@
 "use client";
 import { FC, useEffect, useRef } from "react";
-import dynamic from "next/dynamic";
 import GlslCanvas from "glslCanvas";
 
 interface ShaderCanvasProps {
@@ -49,7 +48,10 @@ const ShaderCanvas: FC<ShaderCanvasProps> = (props): JSX.Element => {
   }, []);
 
   return (
-    <div ref={containerRef} style={{ width: "100%", aspectRatio: "1/1" }}>
+    <div
+      ref={containerRef}
+      className="rounded-md overflow-hidden aspect-square w-full"
+    >
       <canvas ref={canvasRef} className="w-full h-full"></canvas>
     </div>
   );

@@ -1,6 +1,8 @@
 import { flattenDeep } from "lodash";
 import dynamic from "next/dynamic";
-import { Tabs, Pre } from "nextra/components";
+import { Pre } from "nextra/components";
+import { Box, Tabs } from "@radix-ui/themes";
+
 import React from "react";
 
 const ShaderCanvas = dynamic(() => import("./src/components/Shader"), {
@@ -20,56 +22,45 @@ const renderChildContent = (children) => {
 };
 
 export default {
+  footer: null,
+  head: ({ title, meta }) => (
+    <>
+      {meta.description && (
+        <meta name="description" content={meta.description} />
+      )}
+      {meta.tag && <meta name="keywords" content={meta.tag} />}
+      {meta.author && <meta name="author" content={meta.author} />}
+    </>
+  ),
   components: {
+    navs: [],
     pre: ({ children, ...props }) => {
       if (props["data-language"] === "glsl") {
         const finalCode = flattenDeep(renderChildContent(children)).join("");
 
         return (
-          <Tabs items={["code", "preview"]}>
-            <Tabs.Tab>
-              <Pre {...props}>{children}</Pre>
-            </Tabs.Tab>
-            <Tabs.Tab>
-              <ShaderCanvas frag={finalCode} />
-            </Tabs.Tab>
-          </Tabs>
+          <Tabs.Root defaultValue="code">
+            <Tabs.List>
+              <Tabs.Trigger value="code">Code</Tabs.Trigger>
+              <Tabs.Trigger value="Preview">Preview</Tabs.Trigger>
+            </Tabs.List>
+            <Box pt="4">
+              <Tabs.Content value="code">
+                <Pre style={{ marginTop: 0 }} {...props}>
+                  {children}
+                </Pre>
+              </Tabs.Content>
+              <Tabs.Content value="Preview">
+                <ShaderCanvas frag={finalCode} />
+              </Tabs.Content>
+            </Box>
+          </Tabs.Root>
         );
       }
       return <Pre {...props}>{children}</Pre>;
     },
   },
-  footer: (
-    <small style={{ display: "block", marginTop: "8rem" }}>
-      {new Date().getFullYear()} © Tanner Aslan.
-      <style jsx>{`
-        a {
-          float: right;
-        }
 
-        @media screen and (max-width: 480px) {
-          article {
-            padding-top: 2rem;
-            padding-bottom: 4rem;
-          }
-        }
-      `}</style>
-    </small>
-  ),
-  head: ({ title, meta }) => (
-    <>
-      <title>
-        {meta.title === "About" ? "Tanner Aslan" : `${title} - Tanner Aslan`}
-      </title>
-      {meta.description && (
-        <meta name="description" content={meta.description} />
-      )}
-      {meta.title && <meta name="title" content={meta.title} />}
-      {meta.tag && <meta name="keywords" content={meta.tag} />}
-      {meta.author && <meta name="author" content={meta.author} />}
-    </>
-  ),
   readMore: "Read More →",
-  darkMode: true,
   dateFormatter: (date) => `Last updated at ${date.toDateString()}`,
 };
