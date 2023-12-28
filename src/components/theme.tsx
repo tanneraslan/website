@@ -45,11 +45,12 @@ export default function Layout({
                         height={300}
                       />
                     ) : null}
-                    <div className="relative grid p-4 grid-cols-5 gap-8 items-center space-x-8">
+                    <div className="relative flex flex-col justify-start md:grid p-4 grid-cols-5 gap-8 items-center md:space-x-8">
                       <div
-                        className={
-                          item.frontMatter.image ? "col-span-3" : "col-span-5"
-                        }
+                        className={`flex flex-col w-full text-left justify-start 
+                          ${
+                            item.frontMatter.image ? "col-span-3" : "col-span-5"
+                          }`}
                       >
                         <div className="no-underline	 text-lg pb-2 font-bold">
                           {item.frontMatter.title}
@@ -62,12 +63,10 @@ export default function Layout({
                       </div>
                       {item.frontMatter.image ? (
                         <div className="col-span-3 col-start-4">
-                          <Image
-                            className="rounded-md !m-0"
+                          <img
+                            className="rounded-md w-full !m-0"
                             src={item.frontMatter.image}
                             alt={""}
-                            width={300}
-                            height={300}
                           />
                         </div>
                       ) : null}
