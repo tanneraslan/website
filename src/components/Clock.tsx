@@ -14,9 +14,5 @@ export const Clock = () => {
 
   const formattedTime = currentTime.toLocaleTimeString();
 
-  return (
-    <div className=" text-xs text-gray-10 font-mono">
-      TA 2024 • {formattedTime}
-    </div>
-  );
+  return <div className=" text-xs text-gray-10 font-mono">TA 2024 • {}</div>;
 };

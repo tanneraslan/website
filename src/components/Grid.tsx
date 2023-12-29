@@ -17,7 +17,7 @@ export const Grid = () => {
       }}
     >
       <div
-        className="md:grid hidden absolute z-0 top-0 left-0 right-0  bottom-0"
+        className="sm:grid hidden absolute z-0 top-0 left-0 right-0  bottom-0"
         style={{
           transform: `translateX(25%) translateY(-25%) scale(1.5) rotateX(45deg) rotateZ(45deg);`,
           gridTemplateColumns: "repeat(40, 2vw)",

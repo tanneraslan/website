@@ -34,9 +34,11 @@ export default function Layout({
       <Top />
       <BottomNav />
       <Grid />
-      <div className="relative pointer-events-none">
+
+      <div className="theme">
         <Theme pageOpts={{ ...pageOpts, pageMap: [] }} {...rest}>
-          <div className="">{children}</div>
+          <div>{children}</div>
+
           {router.pathname === "/" && (
             <div className="space-y-4 flex  flex-col mt-8">
               {posts.map((item) =>
