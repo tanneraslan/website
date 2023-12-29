@@ -66,7 +66,7 @@ export const BottomNav = () => {
         whileHover="hover"
         variants={{ initial: { scale: 1 }, hover: { scale: 1.2 } }}
         transition={{ type: "spring", stiffness: 300, damping: 15 }}
-        className="border border-gray-3 flex items-center justify-center bg-opacity-50 bg-gray-2 p-2 rounded-full"
+        className="border border-gray-3 flex items-center justify-center bg-opacity-50 bg-gray-1 p-2 rounded-full"
       >
         <motion.div
           initial="initial"
