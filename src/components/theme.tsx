@@ -29,6 +29,7 @@ export default function Layout({
     "frontMatter.date"
   ).reverse();
 
+  console.log(posts);
   return (
     <div className="md:px-0 px-4 py-12">
       <Top />
@@ -56,18 +57,27 @@ export default function Layout({
                       ) : null}
                       <div className="relative flex flex-col justify-start md:grid p-4 grid-cols-5 gap-8 items-center md:space-x-8">
                         <div
-                          className={`flex flex-col w-full text-left justify-start 
+                          className={`flex flex-col w-full text-left justify-between flex-1 h-full 
                           ${
                             item.frontMatter.image ? "col-span-3" : "col-span-5"
                           }`}
                         >
-                          <div className="no-underline	 text-lg pb-2 font-bold">
-                            {item.frontMatter.title}
+                          <div className="flex flex-col ">
+                            <div className="no-underline	 text-lg pb-2 font-bold">
+                              {item.frontMatter.title}
+                            </div>
+                            <div className="no-underline	 text-sm text-gray-11">
+                              {truncate(item.frontMatter.description, {
+                                length: 140,
+                              })}
+                            </div>
                           </div>
-                          <div className="no-underline	 text-sm text-gray-11">
-                            {truncate(item.frontMatter.description, {
-                              length: 140,
-                            })}
+                          <div className="space-x-2 mt-auto py-4">
+                            {item.frontMatter.tag.split(",").map((tag) => (
+                              <span className="bg-gray-4 font-mono uppercase text-gray-11 rounded-md p-1 inline-block text-xs">
+                                {tag}
+                              </span>
+                            ))}
                           </div>
                         </div>
                         {item.frontMatter.image ? (
