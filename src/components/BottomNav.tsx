@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import Home from "./home.svg";
+import Note from "./note.svg";
+
 import {
   easeInOut,
   motion,
@@ -8,7 +10,7 @@ import {
   useSpring,
   useTransform,
 } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRect } from "@/utils/useRect";
 import Picture from "./picture.svg";
 import User from "./user.svg";
@@ -44,7 +46,7 @@ const Button = (props: any) => {
     </motion.div>
   );
 };
-export const BottomNav = () => {
+export const BottomNav = (props: any) => {
   const [offsetX, setoffsetX] = useState(0);
   const [hover, setHover] = useState(false);
   const [barRect, ref] = useRect();
@@ -81,7 +83,10 @@ export const BottomNav = () => {
           <Button hover={hover} offsetX={offsetX} href="/photos">
             <Picture />
           </Button>
-          <Button hover={hover} offsetX={offsetX} href="/me">
+          <Button hover={hover} offsetX={offsetX} href="/music">
+            <Note />
+          </Button>
+          <Button hover={hover} offsetX={offsetX} href="/resume">
             <User />
           </Button>
           <Button
