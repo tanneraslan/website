@@ -7,6 +7,22 @@ import localFont from "next/font/local";
 import { ThemeProvider } from "next-themes";
 import { MDXProvider } from "@mdx-js/react";
 
+const mono = localFont({
+  variable: "--font-mono",
+  src: [
+    {
+      path: "./Supply-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "./Supply-Bold.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+});
+
 const inter = localFont({
   variable: "--font-sans",
   src: [
@@ -44,7 +60,7 @@ export default function App({ Component, pageProps }: any) {
     }
   }, [router.pathname]);
   return (
-    <main className={`${inter.variable} font-sans`}>
+    <main className={`${inter.variable} ${mono.variable} font-mono font-sans`}>
       <ThemeProvider defaultTheme="dark" attribute="class">
         <Theme>
           <MDXProvider components={{ pre: () => <div>asd</div> }}>

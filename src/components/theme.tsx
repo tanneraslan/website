@@ -8,6 +8,9 @@ import { useRouter } from "next/router";
 import Theme from "nextra-theme-blog";
 import "nextra-theme-blog/style.css";
 import ThemeSwitch, { ThemeToggle } from "./ThemeToggle";
+import { BottomNav } from "./BottomNav";
+import { Clock } from "./Clock";
+import { Top } from "./Top";
 
 export default function Layout({
   children,
@@ -26,8 +29,9 @@ export default function Layout({
   ).reverse();
 
   return (
-    <div className="my-12">
-      <ThemeSwitch />
+    <div className="md:px-0 px-4 py-12">
+      <Top />
+      <BottomNav />
       <Theme pageOpts={{ ...pageOpts, pageMap: [] }} {...rest}>
         {children}
         {router.pathname === "/" && (
