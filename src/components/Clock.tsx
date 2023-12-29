@@ -16,7 +16,7 @@ export const Clock = () => {
 
   return (
     <div className=" text-xs text-gray-10 font-mono">
-      Tanenr Aslan • {formattedTime}
+      Tanner Aslan • {formattedTime}
     </div>
   );
 };
