@@ -79,7 +79,7 @@ export const Score = (props: any) => {
             overflowX: "auto",
             scrollBehavior: "smooth",
             whiteSpace: "nowrap",
-            scrollSnapType: "x proximity",
+            scrollSnapType: "x mandatory",
             gridTemplateColumns: `repeat(${count}, ${mobile ? "100" : "50"}%)`,
           }}
           ref={ref}
