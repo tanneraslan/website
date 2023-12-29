@@ -219,3 +219,23 @@ body {
 .dark .preloader-spin__petal {
   animation-name: a-preloader !important;
 }
+
+/* Apply this style to the element with horizontal overflow */
+.music {
+  overflow-x: auto; /* Enable horizontal scrolling */
+}
+
+/* Hide the default scrollbar for WebKit browsers */
+.music::-webkit-scrollbar {
+  width: 0; /* Set width to 0 to hide the scrollbar */
+}
+
+/* Optional: Style the scrollbar track and handle for WebKit browsers */
+.music::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.music::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 0;
+}
