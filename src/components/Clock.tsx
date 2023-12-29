@@ -10,13 +10,9 @@ export const Clock = () => {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, []); // useEffect runs on mount and cleans up on unmount
+  }, []);
 
   const formattedTime = currentTime.toLocaleTimeString();
 
-  return (
-    <div className=" text-xs text-gray-10 font-mono">
-      TA 2024 • {formattedTime}
-    </div>
-  );
+  return <div className=" text-xs text-gray-10 font-mono">TA 2024 • {}</div>;
 };

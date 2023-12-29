@@ -11,6 +11,7 @@ import ThemeSwitch, { ThemeToggle } from "./ThemeToggle";
 import { BottomNav } from "./BottomNav";
 import { Clock } from "./Clock";
 import { Top } from "./Top";
+import { Grid } from "./Grid";
 
 export default function Layout({
   children,
@@ -32,57 +33,60 @@ export default function Layout({
     <div className="md:px-0 px-4 py-12">
       <Top />
       <BottomNav />
-      <Theme pageOpts={{ ...pageOpts, pageMap: [] }} {...rest}>
-        {children}
-        {router.pathname === "/" && (
-          <div className="space-y-4 flex  flex-col mt-8">
-            {posts.map((item) =>
-              item.frontMatter ? (
-                <Link href={item.route} className="!no-underline">
-                  <Card className="hover:bg-gray-3 relative">
-                    {item.frontMatter.image ? (
-                      <Image
-                        className="rounded-md absolute blur-xl opacity-5 top-0 w-full  !m-0"
-                        src={item.frontMatter.image}
-                        alt={""}
-                        width={300}
-                        height={300}
-                      />
-                    ) : null}
-                    <div className="relative flex flex-col justify-start md:grid p-4 grid-cols-5 gap-8 items-center md:space-x-8">
-                      <div
-                        className={`flex flex-col w-full text-left justify-start 
+      <Grid />
+      <div className="relative pointer-events-none">
+        <Theme pageOpts={{ ...pageOpts, pageMap: [] }} {...rest}>
+          <div className="">{children}</div>
+          {router.pathname === "/" && (
+            <div className="space-y-4 flex  flex-col mt-8">
+              {posts.map((item) =>
+                item.frontMatter ? (
+                  <Link href={item.route} className="!no-underline">
+                    <Card className="hover:bg-gray-3 relative">
+                      {item.frontMatter.image ? (
+                        <Image
+                          className="rounded-md absolute blur-xl opacity-5 top-0 w-full  !m-0"
+                          src={item.frontMatter.image}
+                          alt={""}
+                          width={300}
+                          height={300}
+                        />
+                      ) : null}
+                      <div className="relative flex flex-col justify-start md:grid p-4 grid-cols-5 gap-8 items-center md:space-x-8">
+                        <div
+                          className={`flex flex-col w-full text-left justify-start 
                           ${
                             item.frontMatter.image ? "col-span-3" : "col-span-5"
                           }`}
-                      >
-                        <div className="no-underline	 text-lg pb-2 font-bold">
-                          {item.frontMatter.title}
+                        >
+                          <div className="no-underline	 text-lg pb-2 font-bold">
+                            {item.frontMatter.title}
+                          </div>
+                          <div className="no-underline	 text-sm text-gray-11">
+                            {truncate(item.frontMatter.description, {
+                              length: 140,
+                            })}
+                          </div>
                         </div>
-                        <div className="no-underline	 text-sm text-gray-11">
-                          {truncate(item.frontMatter.description, {
-                            length: 140,
-                          })}
-                        </div>
+                        {item.frontMatter.image ? (
+                          <div className="col-span-3 col-start-4">
+                            <img
+                              className="rounded-md w-full !m-0"
+                              src={item.frontMatter.image}
+                              alt={""}
+                            />
+                          </div>
+                        ) : null}
                       </div>
-                      {item.frontMatter.image ? (
-                        <div className="col-span-3 col-start-4">
-                          <img
-                            className="rounded-md w-full !m-0"
-                            src={item.frontMatter.image}
-                            alt={""}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </Card>
-                </Link>
-              ) : null
-            )}
-          </div>
-        )}
-        <Footer />
-      </Theme>
+                    </Card>
+                  </Link>
+                ) : null
+              )}
+            </div>
+          )}
+          <Footer />
+        </Theme>
+      </div>
     </div>
   );
 }
