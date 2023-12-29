@@ -1,6 +1,6 @@
 "use client";
 import { SpinnerIcon } from "nextra/icons";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import WebMscore from "webmscore";
 import Spinner from "./Spinner";
 import { useMediaQuery } from "@/utils/useMediaQuery";
@@ -74,12 +74,12 @@ export const Score = (props: any) => {
         <Spinner />
       ) : (
         <div
-          className={`w-full flex relative gap-${mobile ? 1 : 4} music`}
+          className={`w-full inline-flex m-auto relative gap-${mobile ? 1 : 4} music `}
           style={{
             overflowX: "auto",
             scrollBehavior: "smooth",
             whiteSpace: "nowrap",
-            scrollSnapType: "x mandatory",
+            scrollSnapType: "x proximity",
             gridTemplateColumns: `repeat(${count}, ${mobile ? "100" : "50"}%)`,
           }}
           ref={ref}
@@ -87,9 +87,9 @@ export const Score = (props: any) => {
           {svg.map((svgString, index) => (
             <div
               style={{ scrollSnapAlign: "center" }}
-              className="w-full md:container"
               key={index}
-              dangerouslySetInnerHTML={{ __html: svgString }}
+              style={{ marginLeft: index ? "" : "auto", marginRight: index === (svg.length - 1) ? "auto" : ""}}
+              dangerouslySetInnerHTML={{ __html : svgString }}
             />
           ))}
         </div>
