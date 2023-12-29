@@ -29,6 +29,15 @@ body {
   height: inherit !important;
 }
 
+.music > div {
+  aspect-ratio: 210 / 297;
+  height: calc(100vh - 8rem);
+}
+
+.music > div + div {
+  margin-left: 1rem;
+}
+
 .preloader-spin,
 .preloader-spin--inverted {
   font-size: 32px;

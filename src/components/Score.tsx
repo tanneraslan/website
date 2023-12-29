@@ -74,7 +74,7 @@ export const Score = (props: any) => {
         <Spinner />
       ) : (
         <div
-          className={`w-full grid relative gap-${mobile ? 1 : 4} music`}
+          className={`w-full flex relative gap-${mobile ? 1 : 4} music`}
           style={{
             overflowX: "auto",
             scrollBehavior: "smooth",
