@@ -29,6 +29,16 @@ body {
   height: inherit !important;
 }
 
+.music svg path,
+.music svg polyline {
+  stroke: var(--gray-9) !important;
+  fill: var(--gray-12) !important;
+}
+
+.music svg desc + path {
+  fill: var(--gray-3) !important;
+}
+
 .music > div {
   aspect-ratio: 210 / 297;
   height: calc(100vh - 8rem);
