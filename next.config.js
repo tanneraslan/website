@@ -24,6 +24,7 @@ const nextConfig = {
 
 const withNextra = require("nextra")({
   theme: "./src/components/theme.tsx",
+  latex: true,
   themeConfig: "./theme.config.tsx",
 });
 
