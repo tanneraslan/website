@@ -1,0 +1,12 @@
+---
+type: post
+date: 2024-02-19
+title: Creating a general formula for the nth derivative
+description: Most calculus students are familiar with the Cauchy formula for repeated integration. What if there was a similar formula, but for differentiation?
+tag: lua, development
+---
+
+While doing some taylor series calc homework, I got frustrated from differentiating the same exact functions over and over. I began to wonder if there was some sort of formula to do multiple differentations more quickly, but I couldn't find anything that worked for any function.
+
+So, out of curiousity, I wrote down the formula for a difference quotient on my paper. 
+$$ f'(x) = \lim\limits_{h \to \infty} frac{f(x)-f(x+h)}{h}$$
