@@ -3,11 +3,87 @@ type: post
 date: 2024-02-19
 title: Creating a general formula for the nth derivative
 description: Most calculus students are familiar with the Cauchy formula for repeated integration. What if there was a similar formula, but for differentiation?
-tag: lua, development
+tag: math, calculus
 ---
 
 While doing some taylor series calc homework, I got frustrated from differentiating the same exact functions over and over. I began to wonder if there was some sort of formula to do multiple differentations more quickly, but I couldn't find anything that worked for any function.
 
 So, out of curiousity, I wrote down the formula for a difference quotient on my paper.
 
-$$f'(x) = \lim_{h \to 0} \frac{f(x+h)-f(x)}{h}$$
+$$f'(x) = \lim\limits_{h \to 0} \cfrac{f(x+h)-f(x)}{h}$$
+
+Since this is just getting a tiny chance in $f(x)$ to approach $f'(x)$, it is equally applicable to $f''(x)$ by measuring a tiny change in $f'(x)$.
+
+$$f''(x) = \lim\limits_{h \to 0} \cfrac{f'(x+h)-f'(x)}{h}$$
+
+However, since we know $f'(x)$ from above we can plug the difference quotient back into itself to produce a complex fraction that is in terms of $f(x)$ only.
+
+$$ f''(x) = \lim\limits_{h \to 0} \cfrac{\cfrac{f(x+h+h)-f(x+h)}{h}-\cfrac{f(x+h)-f(x)}{h}}{h} $$
+
+Okay, now we're getting somewhere. We've managed to write a formula for $f''(x)$ given only $f(x)$. But we need this to extend to any $f^{(n)}(x)$, so we're going to need to rewrite it as some sort of series of sums or products.
+
+You may of noticed that there's potential for some cancellation in the complex fraction formula. Because they share the same denominator $h$, we can simply combine them and cancel out terms.
+
+$$ f''(x) = \lim\limits_{h \to 0} \cfrac{\cfrac{(f(x+2h)-f(x+h))-(f(x+h)-f(x))}{h}}{h} $$
+
+Simplifying, we get:
+
+$$ f''(x) = \lim\limits_{h \to 0} \cfrac{f(x+2h)-2f(x+h)+f(x)}{h^2} $$
+
+So there's a lot of simplification going on, but in order to make this a series that can apply to any $f^{(n)}(x)$, we need to start noticing patterns. So, let's go ahead and do the same process but for the third derivative.
+
+$$ f'''(x) = \lim\limits_{h \to 0} \cfrac{\cfrac{\frac{f(x+h+h+h)-f(x+h+h)}{h}-\frac{f(x+h+h)-f(x+h)}{h}}{h}-\cfrac{\frac{f(x+h+h)-f(x+h)}{h}-\frac{f(x+h)-f(x)}{h}}{h}}{h} $$
+
+$$ f'''(x) = \lim\limits_{h \to 0} \cfrac{\cfrac{\cfrac{f(x+3h)-2f(x+2h)+f(x+h)}{h}}{h}-\cfrac{\cfrac{f(x+2h)-2f(x+h)+f(x)}{h}}{h}}{h} $$
+
+$$ f'''(x) = \lim\limits_{h \to 0} \cfrac{f(x+3h)-2f(x+2h)+f(x+h)-f(x+2h)+2f(x+h)-f(x)}{h^3} $$
+
+Finally, we arrive at:
+
+$$ f'''(x) = \lim\limits_{h \to 0} \cfrac{f(x+3h)-3f(x+2h)+3f(x+h)-f(x)}{h^3} $$
+
+The most important things to look at from these simplified equations are the coefficients of each $f(x+hn)$ in the numerator. For the 3rd derivative, they are $1$, $-3$, $3$, $-1$. For the 1st and 2nd derivatives, it was $1$, $-1$, and $1$, $-2$, $1$ respectively.
+
+So clearly, our series is a summation with some sort of alternating pattern. So let's go ahead and write that down along with $n$ being the degree we want to derive to and a $(-1)^n$ to reflect the alternating sign.
+
+$$ f^{(n)}(x) = \sum\limits_{k=0}^n (-1)^k $$
+
+If you've already noticed the pattern in the coefficients, nice work. For those of us still stuck, here is the 4th derivative simplified:
+
+$$ f^{(4)}(x) = \lim\limits_{h \to 0} \cfrac{f(x+4h)-4f(x+3h)+6f(x+2h)-4f(x+h)+f(x)}{h^4} $$
+
+The coefficients are $1$, $-4$, $6$, $-4$, $1$. So, overall, if we get rid of the alternating signs:
+
+$$ \begin{array}{|c|l|}\hline \text{Derivative}&\text{Coefficients} \\ \hline n=1&(1,1) \\ \hline n=2&(1,2,1) \\ \hline n=3&(1,3,3,1) \\ \hline n=4&(1,4,6,4,1) \\ \hline \end{array} $$
+
+That's right! It's Pascal's triangle.  Essentially, if we take some combination of $(x+y)^n$ and expand it, it will give us the same coefficients we see here. For example, take $(x+y)^2$:
+
+$$(x+y)^2 = \mathbf{1}x^2 + \mathbf{2}xy + \mathbf{1}y^2 $$
+
+We can write these coefficients as binomials:
+
+$$ \binom{2}{0} = 1, \binom{2}{1} = 2, \binom{2}{2} = 1 $$
+
+Now, let's add this back to our series and multiply it by $f(x+hk)$:
+
+$$ f^{(n)}(x) = \lim\limits_{h \to 0} \sum\limits_{k=0}^n \binom{n}{k} \times (-1)^k \times f(x+hk) $$
+
+Don't forget to add the denominators of h:
+
+$$ f^{(n)}(x) = \lim\limits_{h \to 0} \cfrac{\sum\limits_{k=0}^n \binom{n}{k} \times (-1)^k \times f(x+hk)}{h^n} $$
+
+We have been looking at the coefficients from where $k$ is greatest to when $k$ is least, but if we analyze it from the same direction the series is going (starting at $k=0$), the first $f(x)$ that every derivative starts with has alternates the starting sign:
+
+$$ f''(x) = \frac{\mathbf{+}f(x)-2f(x+h)+f(x+2h)}{h^2} \\ f'''(x) = \frac{\mathbf{-}f(x)+3f(x+h)-3f(x+2h)+f(x+3h)}{h^3} $$
+
+This means that instead of doing $(-1)^k$, we should instead be using $(-1)^{n-k}$ to account for this difference in ordering:
+
+$$ f^{(n)}(x) = \lim\limits_{h \to 0} \cfrac{\sum\limits_{k=0}^n \binom{n}{k} \times (-1)^{n-k} \times f(x+hk)}{(-h)^n} $$
+
+It's complete! The formula works for any function, to any degree, in all cases. But that begs the question: is there really any practical application for this? Well, its complicated...
+
+Evaluating limits in such a complex manner is extremely difficult to do algebraically. However, it wouldn't be too difficult for computers to calculate this series using an $\epsilon$ for h, something like 0.001 so long as there is enough floating-point precision and the application permits some amount of error. However, there are far more efficient approaches to differentiation (namely, automatic differentiation) that avoid the precision and efficiency issuse associated with a numerical approach like this by playing to a computer's strengths. So, in the end, I made a formula for an equation that is too difficult for humans and too inefficient for computers. 
+
+
+
+Brilliant.  
