@@ -1,0 +1,1046 @@
+---
+type: post
+title: Recreating Lusion Lab's AKARI Light Beams
+description: This post explores rendering 2D path traced light beams using sign distance fields and soft shadow algorithms.
+date: 2023-05-12
+tag: graphics, shader, math, raytracing
+image: /blog/lights.png
+---
+
+This post will be about recreating **Lusion Lab's AKARI Light Beams**, which you can try for yourself [here](https://akari.lusion.co/#home).
+
+**Path tracing** is an infamously expensive but beautiful method of rendering images. The poor GPU has to send out rays for every single pixel, which can bounce, refract, diffuse, reflect, etc. But when dealing with **simple shapes** and **one less dimension**, it can be made real time relatively easily.
+
+The ultimate goal is to make a 2D path tracer that renders **soft shadows** in real time, but for a first test we simply need to detect whether a pixel is within a circle.
+
+This one is really easy. The equation for a point in a circle is just $r\ge\sqrt{x^{2}+y^{2}}$, so we can simply return the pixel's distance from the circle's center. The trick with these **signed distance fields** is that, instead of just stopping at "is this point in the shape?" we ask "how much is this point in this shape?" This can adds significant complexity to the equations because they need to return a **gradient of values** rather than a boolean, but for a circle its quite easy.
+
+The return value will be negative if it is within the circle and positive if it is outside, so we simply return $\sqrt{x^{2}+y^{2}}-r$
+
+In terms of GLSL shader code, this can simply be written as follows:
+
+```glsl
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+uniform vec2 u_resolution;
+
+// Define what a sphere is through position and radius
+struct Sphere {
+    vec2 position;
+    float radius;
+};
+
+// The signed distance field function for a sphere. distance() is a built in function that does the same thing as the formula.
+float sphereSDF(vec2 p, Sphere sphere) {
+    return distance(p, sphere.position) - sphere.radius;
+}
+
+void main() {
+    // Create a white sphere in the center of the screen with radius 25.
+    Sphere whiteSphere;
+    whiteSphere.position = vec2(0.5, 0.5) * u_resolution.xy;
+    whiteSphere.radius = 25.0;
+
+    // Detect whether we are inside the sphere
+    if (sphereSDF(gl_FragCoord.xy, whiteSphere) <= 0.0) {
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // White
+    } else {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); // Black
+    }
+}
+```
+
+The next important figure to render is a line. These are a little bit more complicated, as they need to have **stroke** in addition to **two points** to define them. 
+
+For the rest of this project, I've been using [Inigo Quilez's](https://iquilezles.org/) functions for signed distance fields on a variety of primitive shapes. If you're more interested on the mathematics behind them, he has an oustanding [youtube channel](https://www.youtube.com/channel/UCdmAhiG8HQDlz8uyekw4ENw).
+
+Implementing the SDF for lines gives the following:
+```glsl
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+uniform vec2 u_resolution;
+
+// Define what a sphere is through position and radius
+struct Sphere {
+    vec2 position;
+    float radius;
+};
+
+struct Line {
+    vec2 point1;
+    vec2 point2;
+    float stroke;
+};
+
+// The signed distance field function for a sphere. distance() is a built in function that does the same thing as the formula.
+float sphereSDF(vec2 p, Sphere sphere) {
+    return distance(p, sphere.position) - sphere.radius;
+}
+
+// The signed distance field function for a line segment. Credit to https://iquilezles.org/articles/distfunctions2d/
+float segmentSDF(vec2 p, Line line) {
+    vec2 ba = line.point2 - line.point1;
+    vec2 pa = p - line.point1;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    return length(pa-h*ba) - line.stroke;
+}
+
+void main() {
+    // Create a white sphere in the center of the screen with radius 25.
+    Sphere whiteSphere;
+    whiteSphere.position = vec2(0.5, 0.5) * u_resolution.xy;
+    whiteSphere.radius = 25.0;
+    
+    // Create a red line from the bottom left to the top right of the screen with a stroke of 10
+    Line redLine;
+    redLine.point1 = vec2(0.25,0.25) * u_resolution.xy;
+    redLine.point2 = vec2(0.75,0.75) * u_resolution.xy;
+	redLine.stroke = 10.0;
+
+    // Detect whether we are inside the sphere or inside the line
+    // The order of the statements affects what is rendered on top of what
+    if (sphereSDF(gl_FragCoord.xy, whiteSphere) <= 0.0) {
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // White
+    } else if (segmentSDF(gl_FragCoord.xy, redLine) <= 0.0) {
+        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    } else {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); // Black
+    }
+}
+```
+
+Now let's make the shapes **glow**. At the moment, we are assuming all colors that are not within the shapes are black. If we want a glow effect, these pixels must take into account every shape on the screen.
+
+The inverse square law dictates that $\text{intensity} = \frac{1}{\text{distance}^2}$, but our virtual world is not bound by the laws of reality. If we want to have more control over how the light diffuses, we can use a quadratic polynomial and include a `constant`, `linear`, and `quadratic` term to determine brightness based on distance.
+
+$\text{intensity} = \cfrac{1}{\text{constant} + \text{linear} * \text{distance} + \text{quadratic} * \text{distance}^2}$
+
+There's still the question of what to do when $\text{distance} = 0$, since the denominator of the function will become 0. For this case, I'm going to make the shape white. This may seem odd, but since intensity is approaching infinite, it make more sense than choosing the color of the shape. 
+
+In order to implement glow, we'll add a `Light` struct and a `Shape` struct that will have either the `Line` or `Sphere` struct within them.
+```glsl
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+#define SHAPE_COUNT 2
+
+#define SPHERE 0
+#define LINE 1
+
+uniform vec2 u_resolution;
+
+struct Light {
+    vec3 color;
+
+    float constant;
+    float linear;
+    float quadratic;
+};
+
+struct Sphere {
+    vec2 position;
+    float radius;
+};
+
+struct Line {
+    vec2 point1;
+    vec2 point2;
+    float stroke;
+};
+
+struct Shape {
+    int shapeType;
+    bool emissive;
+
+    Light light;
+
+    Line line;
+    Sphere sphere;
+};
+
+
+Shape shapes[SHAPE_COUNT];
+
+
+// The signed distance field function for a sphere. distance() is a built in function that does the same thing as the formula.
+float sphereSDF(vec2 p, Shape shape) {
+    return distance(p, shape.sphere.position) - shape.sphere.radius;
+}
+
+// The signed distance field function for a line segment. Credit to https://iquilezles.org/articles/distfunctions2d/
+float segmentSDF(vec2 p, Shape shape) {
+    vec2 ba = shape.line.point2 - shape.line.point1;
+    vec2 pa = p - shape.line.point1;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    return length(pa-h*ba) - shape.line.stroke;
+}
+
+float getDistance(vec2 p, Shape shape) {
+    if (shape.shapeType == LINE) {
+        return segmentSDF(p, shape);
+    } else {
+        return sphereSDF(p, shape);
+    }
+}
+
+float getNearestDist(vec2 position) {
+    float smallestDist = 10000.0;
+
+    for (int i = 0; i < SHAPE_COUNT; i++) {
+        smallestDist = min(smallestDist, getDistance(position, shapes[i]));
+    }
+
+    return smallestDist;
+}
+
+vec3 getAttenuation(Shape shape, float dist) {
+    return shape.light.color * (1.0 / (shape.light.constant + shape.light.linear * dist +
+    		    shape.light.quadratic * (dist * dist)));
+}
+
+vec3 getShapeEmission(Shape shape, vec2 position) {
+    float distToLight = getDistance(position, shape);
+    
+    if (distToLight <= 0.0) {
+         return vec3(1.0,1.0,1.0);
+    }
+    
+    vec3 attenuation = getAttenuation(shape, distToLight);
+    return attenuation;
+}
+
+void main() {
+    Light whiteLight;
+    whiteLight.color = vec3(1.0,1.0,1.0);
+    whiteLight.constant = 1.473;
+    whiteLight.linear = 0.026;
+    whiteLight.quadratic = 0.0001;
+    
+    Sphere whiteSphere;
+    whiteSphere.position = vec2(0.5, 0.5) * u_resolution.xy;
+    whiteSphere.radius = 25.;
+    
+    shapes[0].shapeType = SPHERE;
+    shapes[0].sphere = whiteSphere;
+    shapes[0].emissive = true;
+    shapes[0].light = whiteLight;
+    
+    Light redLight;
+    redLight.color = vec3(1.0,0.0,0.0);
+    redLight.constant = 1.308;
+    redLight.linear = 0.072;
+    redLight.quadratic = 0.0005;
+    
+    Line redLine;
+    redLine.point1 = vec2(0.170,0.670) * u_resolution.xy;
+    redLine.point2 = vec2(0.850,0.610) * u_resolution.xy;
+	redLine.stroke = 2.0;
+    
+    shapes[1].shapeType = LINE;
+    shapes[1].line = redLine;
+    shapes[1].emissive = true;
+    shapes[1].light = redLight;
+
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    vec2 position = gl_FragCoord.xy;
+    
+    for (int i = 0; i < SHAPE_COUNT; i++) {
+        if (shapes[i].emissive) {
+            color += getShapeEmission(shapes[i], position);
+        }
+    }
+    
+    gl_FragColor = vec4(color.xyz, 1.0);
+}
+```
+
+It's starting to look like the original, but its missing one very key component: **shadows**. Shadows completely change the game since we now need to detect when one object is **obstructing** another. **Path tracing** is by no means the most optimal approach (as said before, its infamously expensive), but it's the approach I'll be using for simplicity's sake.
+
+Path tracing involves tracing rays, which is actually very simple conceptually. In order to find if a ray hits and the position at which it hits, simply use the **signed distance functions** to get the currently **minimum distance** in the scene. Then, **march** the ray forward by that amount. Repeat this until the **minimum distance** gets really small or if the ray gets too long.
+
+I've created up a **visualizer** that draws a ray from the center of the screen to the mouse position and has two spheres in the scene. Watch how the circles get extra small when the ray is near **tangent to the circle**. That'll come in handy later.
+
+```glsl
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+#define SPHERE_COUNT 2
+
+#define RING_COUNT 10
+
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+
+// Define what a sphere is through position and radius
+struct Sphere {
+    vec2 position;
+    float radius;
+};
+
+struct Ring {
+    vec2 position;
+    float radius;
+};
+
+Sphere spheres[SPHERE_COUNT];
+Ring rings[RING_COUNT];
+
+// The signed distance field function for a sphere. distance() is a built in function that does the same thing as the formula.
+float sphereSDF(vec2 p, Sphere sphere) {
+    return distance(p, sphere.position) - sphere.radius;
+}
+
+float getNearestDist(vec2 position) {
+    float smallestDist = 10000.0;
+
+    for (int i = 0; i < SPHERE_COUNT; i++) {
+        smallestDist = min(smallestDist, sphereSDF(position, spheres[i]));
+    }
+
+    return smallestDist;
+}
+
+bool pathTrace(vec2 startPosition, vec2 endPosition) {
+    vec2 direction = normalize(endPosition - startPosition);
+    float maxDist = distance(endPosition, startPosition);
+    float totalDist = 0.0;
+    bool hasHit = false;
+    vec2 position = startPosition;
+    
+    for (int i = 0; i < RING_COUNT; i++) {
+        float minDist = getNearestDist(position);
+        
+        totalDist += minDist;
+        
+        if (hasHit || totalDist >= maxDist ) {
+            rings[i].radius = 0.0;
+        } else {
+            rings[i].position = position;
+            rings[i].radius = minDist;
+            
+            if (minDist <= 1.) {
+                hasHit = true;
+            }
+            
+            position += direction * minDist;
+        }
+    }
+    
+    return hasHit;
+}
+
+void main() {
+    spheres[0].position = vec2(0.710,0.750) * u_resolution.xy;
+    spheres[0].radius = 50.0;
+    
+    spheres[1].position = vec2(0.290,0.150) * u_resolution.xy;
+    spheres[1].radius = 30.0;
+    
+    vec3 color = vec3(0.0);
+    vec2 position = gl_FragCoord.xy;
+    
+	for (int i = 0; i < SPHERE_COUNT; i++) {
+        if (sphereSDF(position, spheres[i]) <= 0.0) {
+            color = vec3(1.0);
+            break;
+        }
+    }
+    
+    vec2 rayStart = u_resolution.xy/2.0;
+    vec2 rayEnd = u_mouse.xy;
+    
+	bool hasHit = pathTrace(rayStart, rayEnd);
+    
+    for (int i = 0; i < RING_COUNT; i++) {
+        if (abs(distance(position, rings[i].position) - rings[i].radius) <= 1.0) {
+            color = vec3(1.0,0.0,1.0);
+            break;
+        }
+    }
+    
+    vec2 ba = rayEnd - rayStart;
+    vec2 pa = position - rayStart;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    if (length(pa-h*ba) - 1.0 <= 0.0) {
+        color = vec3(hasHit, !hasHit, 0.0);
+    }
+    
+    gl_FragColor = vec4(color, 1.0);
+    
+}
+```
+
+Before we add **path tracing**, we need to add an additional function for our shapes in addition to the **signed distance function**: the **closest point** function. This function essentially describes the point on the **perimeter of a shape** that is closest to any given point **outside of the shape**. For a circle, it's simple because the perimeter is **equidistant** from the center, but it can get fairly complex for different shapes. 
+
+There are many other approaches to 2D path tracing that **don't require a closest function** like this and have much more opportunities for optimization. An example is rendering the scene from the **perspective** of every light source, then using that information to determine if any point is in **shadow** of any light source very easily. This is often how video games render the shadows from the sun.
+
+In this example, any point in shadow receives no light from the light source. The white sphere is now controlled by the user's mouse.
+
+```glsl
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+#define SHAPE_COUNT 2
+
+#define SPHERE 0
+#define LINE 1
+
+#define MIN_HIT_DIST 1.
+#define MAX_TRACE_DIST 500.0
+#define STEP_COUNT 24
+
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+
+struct Light {
+    vec3 color;
+
+    float constant;
+    float linear;
+    float quadratic;
+};
+
+struct Sphere {
+    vec2 position;
+    float radius;
+};
+
+struct Line {
+    vec2 point1;
+    vec2 point2;
+    float stroke;
+};
+
+struct Shape {
+    int shapeType;
+    bool emissive;
+
+    Light light;
+
+    Line line;
+    Sphere sphere;
+};
+
+
+Shape shapes[SHAPE_COUNT];
+
+
+// The signed distance field function for a sphere. distance() is a built in function that does the same thing as the formula.
+float sphereSDF(vec2 p, Shape shape) {
+    return distance(p, shape.sphere.position) - shape.sphere.radius;
+}
+
+// The signed distance field function for a line segment. Credit to https://iquilezles.org/articles/distfunctions2d/
+float segmentSDF(vec2 p, Shape shape) {
+    vec2 ba = shape.line.point2 - shape.line.point1;
+    vec2 pa = p - shape.line.point1;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    return length(pa-h*ba) - shape.line.stroke;
+}
+
+float getDistance(vec2 p, Shape shape) {
+    if (shape.shapeType == LINE) {
+        return segmentSDF(p, shape);
+    } else {
+        return sphereSDF(p, shape);
+    }
+}
+
+vec2 segmentCP(vec2 p, Shape shape) {
+    vec2 ba = shape.line.point2 - shape.line.point1;
+    vec2 pa = p - shape.line.point1;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    return shape.line.point1 + h*ba;
+}
+
+vec2 sphereCP(vec2 p, Shape shape) {
+    vec2 dir = normalize(shape.sphere.position - p);
+    return shape.sphere.position + dir * shape.sphere.radius;
+}
+
+vec2 getClosestPoint(vec2 p, Shape shape) {
+    if (shape.shapeType == LINE) {
+        return segmentCP(p, shape);
+    } else {
+        return sphereCP(p, shape);
+    }
+}
+
+float getNearestDist(vec2 position, int ignoreIndex) {
+    float smallestDist = 10000.0;
+
+    for (int i = 0; i < SHAPE_COUNT; i++) {
+        if (i == ignoreIndex) {
+            continue;
+        }
+        
+        smallestDist = min(smallestDist, getDistance(position, shapes[i]));
+    }
+
+    return smallestDist;
+}
+
+vec3 getAttenuation(Shape shape, float dist) {
+    return shape.light.color * (1.0 / (shape.light.constant + shape.light.linear * dist +
+    		    shape.light.quadratic * (dist * dist)));
+}
+
+vec3 getShapeEmission(int shapeIndex, Shape shape, vec2 position) {
+    float distToLight = getDistance(position, shape);
+
+    // Totally legit anti aliasing
+    if (distToLight <= 0.0) {
+        return vec3(1.0,1.0,1.0);
+    }
+
+    vec2 lightPosition = getClosestPoint(position, shape);
+    vec2 rayDir = normalize(lightPosition - position);
+
+    float res = 1.0;
+    float t = 0.0;
+
+    for (int i = 0; i < STEP_COUNT; i++) {
+        vec2 pos = position + rayDir * t;
+        float h = getNearestDist(pos, shapeIndex);
+
+        if (h <= MIN_HIT_DIST) {
+            res = 0.0;
+            break;
+        }
+        
+        t += clamp(h, MIN_HIT_DIST, MAX_TRACE_DIST);
+
+        if(t>distToLight || t>MAX_TRACE_DIST) break;
+    }
+    
+    
+    vec3 attenuation = getAttenuation(shape, distToLight);
+
+    return attenuation * res;
+}
+
+void main() {
+    Light whiteLight;
+    whiteLight.color = vec3(1.0,1.0,1.0);
+    whiteLight.constant = 1.473;
+    whiteLight.linear = 0.026;
+    whiteLight.quadratic = 0.0001;
+    
+    Sphere whiteSphere;
+    whiteSphere.position = u_mouse.xy;//vec2(0.5, 0.5) * u_resolution.xy;
+    whiteSphere.radius = 25.;
+    
+    shapes[0].shapeType = SPHERE;
+    shapes[0].sphere = whiteSphere;
+    shapes[0].emissive = true;
+    shapes[0].light = whiteLight;
+    
+    Light redLight;
+    redLight.color = vec3(1.0,0.0,0.0);
+    redLight.constant = 1.308;
+    redLight.linear = 0.072;
+    redLight.quadratic = 0.0005;
+    
+    Line redLine;
+    redLine.point1 = vec2(0.170,0.670) * u_resolution.xy;
+    redLine.point2 = vec2(0.850,0.610) * u_resolution.xy;
+	redLine.stroke = 2.0;
+    
+    shapes[1].shapeType = LINE;
+    shapes[1].line = redLine;
+    shapes[1].emissive = true;
+    shapes[1].light = redLight;
+
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    vec2 position = gl_FragCoord.xy;
+    
+    for (int i = 0; i < SHAPE_COUNT; i++) {
+        if (shapes[i].emissive) {
+            color += getShapeEmission(i, shapes[i], position);
+        }
+    }
+    
+    gl_FragColor = vec4(color.xyz, 1.0);
+}
+```
+
+You may have noticed that the shadows don't quite look right. That's because while we are computing shadows correctly, we're assuming that the **surface** in which the light is **interacting with** is perfectly **smooth**. In reality, when light **skims** off the edge of a shape, there are **bumps and interactions** that occur on a small scale that cause the shadow to appear **blurry** at the edges. This effect increases as the **distance** between the **light** and the **edge** increases. This is known as **soft shadows**, and are a very important aspect of making decent looking graphics. **Hard shadows**, the approach we were using before, doesn't look right for a **realistic stylization**.
+
+One great advantage of path tracing is that we get **edge detection** for essentially **zero performance cost**. While more common methods of real time rendering have to do **extra computations** for **soft shadows**, we can use the way the marching rings get extremely small near the edge of objects to make our shadows soft. 
+
+```glsl
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+#define SHAPE_COUNT 2
+
+#define SPHERE 0
+#define LINE 1
+
+#define MIN_HIT_DIST 1.
+#define MAX_TRACE_DIST 500.0
+#define STEP_COUNT 24
+#define SHADOW_SOFTNESS 0.3
+
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+
+struct Light {
+    vec3 color;
+
+    float constant;
+    float linear;
+    float quadratic;
+};
+
+struct Sphere {
+    vec2 position;
+    float radius;
+};
+
+struct Line {
+    vec2 point1;
+    vec2 point2;
+    float stroke;
+};
+
+struct Shape {
+    int shapeType;
+    bool emissive;
+
+    Light light;
+
+    Line line;
+    Sphere sphere;
+};
+
+
+Shape shapes[SHAPE_COUNT];
+
+
+// The signed distance field function for a sphere. distance() is a built in function that does the same thing as the formula.
+float sphereSDF(vec2 p, Shape shape) {
+    return distance(p, shape.sphere.position) - shape.sphere.radius;
+}
+
+// The signed distance field function for a line segment. Credit to https://iquilezles.org/articles/distfunctions2d/
+float segmentSDF(vec2 p, Shape shape) {
+    vec2 ba = shape.line.point2 - shape.line.point1;
+    vec2 pa = p - shape.line.point1;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    return length(pa-h*ba) - shape.line.stroke;
+}
+
+float getDistance(vec2 p, Shape shape) {
+    if (shape.shapeType == LINE) {
+        return segmentSDF(p, shape);
+    } else {
+        return sphereSDF(p, shape);
+    }
+}
+
+vec2 segmentCP(vec2 p, Shape shape) {
+    vec2 ba = shape.line.point2 - shape.line.point1;
+    vec2 pa = p - shape.line.point1;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    return shape.line.point1 + h*ba;
+}
+
+vec2 sphereCP(vec2 p, Shape shape) {
+    vec2 dir = normalize(shape.sphere.position - p);
+    return shape.sphere.position + dir * shape.sphere.radius;
+}
+
+vec2 getClosestPoint(vec2 p, Shape shape) {
+    if (shape.shapeType == LINE) {
+        return segmentCP(p, shape);
+    } else {
+        return sphereCP(p, shape);
+    }
+}
+
+float getNearestDist(vec2 position, int ignoreIndex) {
+    float smallestDist = 10000.0;
+
+    for (int i = 0; i < SHAPE_COUNT; i++) {
+        if (i == ignoreIndex) {
+            continue;
+        }
+        
+        smallestDist = min(smallestDist, getDistance(position, shapes[i]));
+    }
+
+    return smallestDist;
+}
+
+vec3 getAttenuation(Shape shape, float dist) {
+    return shape.light.color * (1.0 / (shape.light.constant + shape.light.linear * dist +
+    		    shape.light.quadratic * (dist * dist)));
+}
+
+vec3 getShapeEmission(int shapeIndex, Shape shape, vec2 position) {
+    float distToLight = getDistance(position, shape);
+
+    // Totally legit anti aliasing
+    if (distToLight <= 0.0) {
+        return vec3(1.0,1.0,1.0);
+    }
+
+    vec2 lightPosition = getClosestPoint(position, shape);
+    vec2 rayDir = normalize(lightPosition - position);
+
+    float res = 1.0;
+    float ph = 1e20;
+    float t = MIN_HIT_DIST;
+
+    for (int i = 0; i < STEP_COUNT; i++) {
+        vec2 pos = position + rayDir * t;
+        float h = getNearestDist(pos, shapeIndex);
+
+        res = min(res, h/(SHADOW_SOFTNESS*t));
+        t += clamp(h, MIN_HIT_DIST, MAX_TRACE_DIST);
+
+        if( res<-1.0 || t>distToLight) break;
+    }
+
+    res = max(res,-1.0);
+    res = 0.25*(1.0+res)*(1.0+res)*(2.0-res);
+
+    
+    vec3 attenuation = getAttenuation(shape, distToLight);
+
+    return attenuation * res;
+}
+
+void main() {
+    Light whiteLight;
+    whiteLight.color = vec3(1.0,1.0,1.0);
+    whiteLight.constant = 1.473;
+    whiteLight.linear = 0.026;
+    whiteLight.quadratic = 0.0001;
+    
+    Sphere whiteSphere;
+    whiteSphere.position = u_mouse.xy;//vec2(0.5, 0.5) * u_resolution.xy;
+    whiteSphere.radius = 25.;
+    
+    shapes[0].shapeType = SPHERE;
+    shapes[0].sphere = whiteSphere;
+    shapes[0].emissive = true;
+    shapes[0].light = whiteLight;
+    
+    Light redLight;
+    redLight.color = vec3(1.0,0.0,0.0);
+    redLight.constant = 1.308;
+    redLight.linear = 0.072;
+    redLight.quadratic = 0.0005;
+    
+    Line redLine;
+    redLine.point1 = vec2(0.170,0.670) * u_resolution.xy;
+    redLine.point2 = vec2(0.850,0.610) * u_resolution.xy;
+	redLine.stroke = 2.0;
+    
+    shapes[1].shapeType = LINE;
+    shapes[1].line = redLine;
+    shapes[1].emissive = true;
+    shapes[1].light = redLight;
+
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    vec2 position = gl_FragCoord.xy;
+    
+    for (int i = 0; i < SHAPE_COUNT; i++) {
+        if (shapes[i].emissive) {
+            color += getShapeEmission(i, shapes[i], position);
+        }
+    }
+    
+    gl_FragColor = vec4(color.xyz, 1.0);
+}
+```
+
+The difference is pretty astounding. At this point, to achieve a final look similar to Lusion Lab's, I just put some vertical beams that flickered and moved horizontally using sine waves. I also made the intensity of the beams fade at the corners, which is fairly easy to add as well.
+
+Another important element I added was pseudo **anti-aliasing**. The white of the lights often contrasted quite sharply with every other color, and lines at angles would produce jagged edges. To solve this, I blur the edges of the light-emitting shapes between the pure white color and the color of the light when the distance is near 0.
+
+#### Final Code
+
+```glsl
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform vec4 u_mouse;
+uniform vec4 u_date;
+
+struct Light {
+    vec3 color;
+
+    float constant;
+    float linear;
+    float quadratic;
+};
+
+struct Line {
+    vec2 point1;
+    vec2 point2;
+    float stroke;
+
+    Light light;
+};
+
+struct Sphere {
+    vec2 position;
+    float radius;
+
+    Light light;
+};
+
+struct Shape {
+    int shapeType;
+    bool emissive;
+
+    Light light;
+
+    Line line;
+    Sphere sphere;
+};
+
+#define distanceX 50.0
+
+// If your PC is struggling with performance, try lowering step count to 64 or 32.
+// Also try setting the max trace distance higher, to something like .2 or .4
+#define STEP_COUNT 24
+#define MIN_HIT_DIST 0.1
+#define MAX_TRACE_DIST 500.
+#define SHADOW_SOFTNESS .3 // the lower the sharper. 0.3 is ideal 
+
+#define SHAPE_COUNT 3
+
+Shape shapes[SHAPE_COUNT];
+
+vec2 convertPixelToPos(vec2 pixel) {
+    return ((pixel / u_resolution.xy) - 0.5 ) * vec2(distanceX, distanceX * (u_resolution.y / u_resolution.x));
+}
+
+vec3 getAttenuation(Shape shape, vec2 lightDirection, float dist) {
+    float multiplier = 1.0;
+
+    if (shape.shapeType == 0) {
+        vec2 normal = normalize(shape.line.point1 - shape.line.point2);
+        normal = vec2(-normal.y, normal.x);
+        multiplier = abs(dot(lightDirection, normal));
+        multiplier = sqrt( multiplier);
+    }
+
+    return shape.light.color * multiplier * (1.0 / (shape.light.constant + shape.light.linear * dist +
+    		    shape.light.quadratic * (dist * dist)));
+}
+
+vec2 getClosestPointOnLine(Line line, vec2 p) {
+    vec2 ba = line.point2-line.point1;
+    vec2 pa = p-line.point1;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    return line.point1 + h*ba;
+}
+
+float segmentSDF(vec2 p, Shape shape) {
+    vec2 ba = shape.line.point2 - shape.line.point1;
+    vec2 pa = p - shape.line.point1;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    return length(pa-h*ba) - shape.line.stroke;
+}
+
+float sphereSDF(vec2 p, Shape shape) {
+    return distance(p, shape.sphere.position) - shape.sphere.radius;
+}
+
+float getDistance(vec2 p, Shape shape) {
+    if (shape.shapeType == 0) {
+        return segmentSDF(p, shape);
+    } else {
+        return sphereSDF(p, shape);
+    }
+}
+
+vec2 segmentCP(vec2 p, Shape shape) {
+    vec2 ba = shape.line.point2 - shape.line.point1;
+    vec2 pa = p - shape.line.point1;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+
+    return shape.line.point1 + h*ba;
+}
+
+vec2 sphereCP(vec2 p, Shape shape) {
+    vec2 dir = normalize(shape.sphere.position - p);
+    return shape.sphere.position + dir * shape.sphere.radius;
+}
+
+vec2 getClosestPoint(vec2 p, Shape shape) {
+    if (shape.shapeType == 0) {
+        return segmentCP(p, shape);
+    } else {
+        return sphereCP(p, shape);
+    }
+}
+
+float getNearestDist(vec2 position, int ignoreIndex) {
+    float smallestDist = 10000.0;
+
+    for (int i = 0; i < SHAPE_COUNT; i++) {
+        if (i == ignoreIndex) continue;
+
+        smallestDist = min(smallestDist, getDistance(position, shapes[i]));
+    }
+
+    return smallestDist;
+}
+
+vec3 getShapeEmission(Shape shape, int shapeIndex, vec2 position) {
+    float distToLight = getDistance(position, shape);
+
+    // Totally legit anti aliasing
+    if (distToLight <= 0.0) {
+        if (abs(distToLight) <= 0.05) {
+            float t = (distToLight + 0.05) / 0.1;
+            return mix(vec3(1.0,1.0,1.0), getAttenuation(shape, vec2(5.0,5.0), 0.0), 1.0-(1.0-t)*(1.0-t));
+        } else {
+            return vec3(1.0,1.0,1.0);
+        }
+    }
+
+    vec2 lightPosition = getClosestPoint(position, shape);
+    vec2 rayDir = (lightPosition - position) / distToLight;
+
+    float res = 1.0;
+    float ph = 1e20;
+    float t = MIN_HIT_DIST;
+
+    for (int i = 0; i < STEP_COUNT; i++) {
+        vec2 pos = position + rayDir * t;
+        float h = getNearestDist(pos, shapeIndex);
+
+        res = min(res, h/(SHADOW_SOFTNESS*t));
+        t += clamp(h, MIN_HIT_DIST, MAX_TRACE_DIST);
+
+        if( res<-1.0 || t>distToLight) break;
+    }
+
+    res = max(res,-1.0);
+    res = 0.25*(1.0+res)*(1.0+res)*(2.0-res);
+
+    
+    vec3 attenuation = getAttenuation(shape, rayDir, distToLight);
+
+    return attenuation * res;
+}
+
+bool flicker(float seed, float speed) {
+    seed = seed / speed;
+    seed += u_time;
+    return cos( sin(seed / (0.1 * radians(180.0))) + cos(1.5 * seed) ) + sin(seed / (radians(180.0)) + cos(10.0 * seed)) > 1.9;
+}
+
+void main()
+{
+    // Red line
+    Light lineLight0;
+    lineLight0.constant = 1.0;
+    lineLight0.linear = 0.5;
+    lineLight0.quadratic = 0.03;
+    lineLight0.color = vec3(0.95,0.2,0.3);
+
+    float xOffset = sin(u_time*0.1);
+    xOffset = xOffset * xOffset * xOffset;
+
+    shapes[0].shapeType = 0;
+    shapes[0].emissive = !flicker(0.0, 35.0);
+    shapes[0].light = lineLight0;
+    shapes[0].line.point1 = vec2(-15.0 + xOffset*50.0,8.0);
+    shapes[0].line.point2 = vec2(15.0 + xOffset*50.0,8.0);
+    shapes[0].line.stroke = 0.1;
+
+
+    // Green line
+    Light lineLight1;
+    lineLight1.constant = 1.0;
+    lineLight1.linear = 0.5;
+    lineLight1.quadratic = 0.03;
+    lineLight1.color = vec3(0.3,0.7,0.3);
+
+    xOffset = cos(u_time*0.25);
+    xOffset = xOffset * xOffset * xOffset;
+
+    shapes[1].shapeType = 0;
+    shapes[1].emissive = !flicker(7.0, 49.0);
+    shapes[1].light = lineLight1;
+    shapes[1].line.point1 = vec2(-10.0 + xOffset * 50.0,-2.0);
+    shapes[1].line.point2 = vec2(15.0 + xOffset * 50.0,-2.0);
+    shapes[1].line.stroke = 0.1;
+
+    // Blue line
+    Light lineLight2;
+    lineLight2.constant = 1.0;
+    lineLight2.linear = 0.5;
+    lineLight2.quadratic = 0.03;
+    lineLight2.color = vec3(0.15,0.4,0.7);
+
+    xOffset = sin(u_time * 0.3 + 0.5);
+    xOffset = xOffset * xOffset * xOffset;
+
+    shapes[2].shapeType = 0;
+    shapes[2].emissive = !flicker(24.0, 69.0);
+    shapes[2].light = lineLight2;
+    shapes[2].line.point1 = vec2(-14.0 + xOffset * 50.0,-7.0);
+    shapes[2].line.point2 = vec2(13.0 + xOffset * 50.0,-7.0);
+    shapes[2].line.stroke = 0.1;
+
+
+    // sphere
+    /*
+    Light sphereLight0;
+    sphereLight0.constant = 0.8;
+    sphereLight0.linear = 0.15;
+    sphereLight0.quadratic = 0.005;
+    sphereLight0.color = vec3(0.5,0.4,0.1);
+
+
+    shapes[3].shapeType = 1;
+    shapes[3].emissive = true;
+    shapes[3].light = sphereLight0;
+    shapes[3].sphere.position = vec2(0.0,0.0);
+    shapes[3].sphere.radius = 1.;
+    */
+    vec2 position = convertPixelToPos(gl_FragCoord.xy);
+    vec3 color = vec3(0.01,0.02,0.05);
+
+    for (int i = 0; i < SHAPE_COUNT; i++) {
+        if (shapes[i].emissive) {
+            color += getShapeEmission(shapes[i], i, position);
+        }
+    }
+
+    vec4 fragmentColor = vec4(color.xyz, 1.0);
+    gl_FragColor = fragmentColor;
+}
+
+```
