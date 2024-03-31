@@ -1,6 +1,7 @@
 "use client";
 import { FC, useEffect, useRef } from "react";
 import GlslCanvas from "glslCanvas";
+import { sand } from "@radix-ui/colors";
 
 interface ShaderCanvasProps {
   frag: string;
@@ -15,8 +16,8 @@ const ShaderCanvas: FC<ShaderCanvasProps> = (props): JSX.Element => {
     canvas: HTMLCanvasElement,
     container: HTMLDivElement
   ): void => {
-    canvas.width = container.clientWidth + window.devicePixelRatio;
-    canvas.height = container.clientHeight + window.devicePixelRatio;
+    canvas.width = container.clientWidth * window.devicePixelRatio;
+    canvas.height = container.clientHeight * window.devicePixelRatio;
     canvas.style.width = container.clientWidth + "px";
     canvas.style.height = container.clientHeight + "px";
   };
@@ -29,7 +30,7 @@ const ShaderCanvas: FC<ShaderCanvasProps> = (props): JSX.Element => {
       sandbox.setUniform(k, props.setUniforms[k]);
     }
 
-    resizer(node, container);
+    resizer(canvasRef.current, containerRef.current);
     sandbox.load(props.frag);
 
     const handler = () => {
@@ -40,10 +41,9 @@ const ShaderCanvas: FC<ShaderCanvasProps> = (props): JSX.Element => {
         resizer(canvasRef.current, containerRef.current);
     };
 
-    window.addEventListener("resize", handler);
-
+    container.addEventListener("resize", handler);
     return () => {
-      window.removeEventListener("resize", handler);
+      container.removeEventListener("resize", handler);
     };
   }, []);
 
