@@ -14,7 +14,7 @@ const ShaderCanvas: FC<ShaderCanvasProps> = (props): JSX.Element => {
 
   const resizer = (
     canvas: HTMLCanvasElement,
-    container: HTMLDivElement
+    container: HTMLDivElement 
   ): void => {
     canvas.width = container.clientWidth * window.devicePixelRatio;
     canvas.height = container.clientHeight * window.devicePixelRatio;
@@ -40,10 +40,11 @@ const ShaderCanvas: FC<ShaderCanvasProps> = (props): JSX.Element => {
       )
         resizer(canvasRef.current, containerRef.current);
     };
-
-    container.addEventListener("resize", handler);
+  
+    window.addEventListener("resize", handler);
+    
     return () => {
-      container.removeEventListener("resize", handler);
+      window.removeEventListener("resize", handler);
     };
   }, []);
 
