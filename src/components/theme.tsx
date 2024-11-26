@@ -23,6 +23,8 @@ export default function Layout({
   const hideContainer = ["/photos", "/music/"].some((i) =>
     router.pathname.startsWith(i)
   );
+
+  console.log(pageMap)
   const posts = sortBy(
     compact(pageMap.filter((item) => item.name === "posts")[0].children).filter(
       (item) => item.name !== "index"
@@ -30,6 +32,7 @@ export default function Layout({
     "frontMatter.date"
   ).reverse();
 
+  
   return (
     <div className="md:px-0 px-4 py-12">
       <Top />
