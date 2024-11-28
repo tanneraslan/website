@@ -40,6 +40,7 @@ const Button = (props: any) => {
       <Link
         className="h-10 w-10 text-gray-11 rounded-full bg-gray-3 relative border border-gray-4 flex items-center justify-center"
         href={props.href}
+        target={ props.openNewTab ? "_blank" : undefined} 
       >
         {props.children}
       </Link>
@@ -51,7 +52,7 @@ export const BottomNav = (props: any) => {
   const [hover, setHover] = useState(false);
   const [barRect, ref] = useRect();
 
-  const handleMouseOver = (event) => {
+  const handleMouseOver = (event: any) => {
     const offsetX = event.clientX;
     setoffsetX(offsetX);
   };
@@ -92,7 +93,8 @@ export const BottomNav = (props: any) => {
           <Button
             hover={hover}
             offsetX={offsetX}
-            href="mailto:contact@tanneraslan.com"
+            href="https://github.com/tanneraslan"
+            openNewTab
           >
             <GitHubLogoIcon />
           </Button>
@@ -100,6 +102,7 @@ export const BottomNav = (props: any) => {
             hover={hover}
             offsetX={offsetX}
             href="mailto:contact@tanneraslan.com"
+            openNewTab
           >
             <Mail />
           </Button>

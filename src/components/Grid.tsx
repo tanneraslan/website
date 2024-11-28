@@ -26,7 +26,8 @@ export const Grid = () => {
       >
         {times(40, (i) =>
           times(40, (j) => (
-            <div className="w-full h-full transition transition-all duration-500 hover:duration-0 active:bg-gray-4 hover:bg-gray-3 border-[0.1px] border-gray-3 aspect-square border" />
+            <div className="w-full h-full transition transition-all duration-500 hover:duration-0 active:bg-gray-4 hover:bg-gray-3 border-[0.1px] border-gray-3 aspect-square border"
+                 key={`${i}-${j}`} />
           ))
         )}
       </div>

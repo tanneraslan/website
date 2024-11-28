@@ -31,7 +31,6 @@ export default function Layout({
     "frontMatter.date"
   ).reverse();
 
-  
   return (
     <div className="md:px-0 px-4 py-12">
       <Top />
@@ -48,7 +47,7 @@ export default function Layout({
               <div className="space-y-4 flex  flex-col mt-8">
                 {posts.map((item) =>
                   item.frontMatter ? (
-                    <Link href={item.route} className="!no-underline">
+                    <Link href={item.route} className="!no-underline" key={item.name}>
                       <Card className="hover:bg-gray-3 relative">
                         {item.frontMatter.image ? (
                           <Image
@@ -77,8 +76,8 @@ export default function Layout({
                               </div>
                             </div>
                             <div className="space-x-2 mt-auto py-4">
-                              {item.frontMatter.tag.split(",").map((tag) => (
-                                <span className="bg-gray-4 font-mono uppercase text-gray-11 rounded-md p-1 inline-block text-xs">
+                              {item.frontMatter.tag.split(",").map((tag, i) => (
+                                <span className="bg-gray-4 font-mono uppercase text-gray-11 rounded-md p-1 inline-block text-xs" key={`${tag}-${i}`}>
                                   {tag}
                                 </span>
                               ))}

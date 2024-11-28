@@ -1,14 +1,19 @@
 "use client";
 import React, { useState, useEffect } from "react";
 
-export const Clock = () => {
-  const [currentTime, setCurrentTime] = useState(new Date());
+const DEFAULT_DATE = new Date().toLocaleDateString()
 
-  const formattedTime = currentTime.toLocaleDateString();
+export const Clock = () => {
+  const [currentTime, setCurrentTime] = useState<string>(DEFAULT_DATE);
+
+  useEffect(() => {
+    setCurrentTime(new Date().toLocaleDateString());
+  }, []);
 
   return (
     <div className=" text-xs text-gray-10 font-mono">
-      TA2024 • {formattedTime}
+      TA2024 • {currentTime}
     </div>
   );
+ 
 };
