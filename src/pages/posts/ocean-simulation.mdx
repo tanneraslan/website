@@ -1,0 +1,154 @@
+---
+type: post
+title: The challenges of real time ocean simulation
+description: Oceans are huge and infinitely complex, so how do computers visualize them in real time?
+date: 2024-06-11
+tag: graphics, math, simulation
+image: /blog/ocean-simulation/water.gif
+---
+
+import DynamicImageWithCaption from '../../components/DynamicImageWithCaption';
+
+### Goals
+The movement of the ocean in real life is extremely complex, and finding a way to apply it to a real time simulation is extremely difficult. Often, in applications like video games, very crude approximations (e.g. sine waves) are used that don’t appear natural in order to save resources.
+
+The primary two goals are as follows:
+1. Create an ocean that balances performance with visual fidelity. It needs to be able to adjust that balance depending on a variety of systems, from the cheapest laptops to the highest-end gaming computers.
+2. Develop a buoyancy system that decently approximates the real behavior of floating objects, including the drag they produce in the water. Also has to be decently fast and should integrate seamlessly into the existing physics engine.
+
+Both these methods also must be applicable to multiplayer systems, since I plan to use them in my video game.
+
+---
+
+### A Simple Sine Wave
+For simplicity, I started in two dimensions and created a dozen equally distributed points. I then applied a simple sine curve to these points and adjusted the phase with time so that it appeared to move. The result was as expected and pretty underwhelming.
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\0.png" 
+  alt="Simple sine wave applied to 2D points" 
+  caption="Figure 1: Simple sine wave applied to 2D points." 
+/>
+
+Extending this to three dimensions, the result is rather bland looking. While there is a specular reflection, it appears very flat with no depth at all.
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\1.png" 
+  alt="Sine wave extended to three dimensions" 
+  caption="Figure 2: Sine wave extended to three dimensions." 
+/>
+
+I realized I forgot to factor in surface normals, which are necessary to computing the way light interacts with the surface. Surface normals can easily be taken from the derivative of the sine wave function and rotating it 90 degrees to point “up” instead of “forward.”
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\2.png" 
+  alt="Sine wave extended to three dimensions with surface normals" 
+  caption="Figure 3: Sine wave extended to three dimensions with surface normals." 
+/>
+
+Now that it has normals, the blandness of the sine wave is really starting to stand out. Real waves compress at their peaks and expand at their troughs. It’s time to move on to the Gerstner wave.
+
+---
+
+### A Simple Gerstner Wave
+Gerstner waves are a little bit more complicated. They’re essentially a much better approximation of how real waves behave with no obstructions and an infinite depth. Of course, the ocean has obstructions and finite depth but when working in real time, corners have to be cut. Essentially, each point moves in a little circle, creating horizontal displacement on top of vertical displacement. This gives the effect of squeezing at the peaks and expanding at troughs.
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\3.png" 
+  alt="Sine wave when compared to Gerstner wave with circular paths outlined" 
+  caption="Figure 4: Sine wave (in red) when compared to Gerstner wave (in blue) with circular paths outlined." 
+/>
+
+When in three dimensions, calculating surface normals becomes a little tricker but since each axis is independent of each other, it’s not anything multivariable. Applying the Gerstner waves to the plane, the result is definitely an improvement.
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\4.png" 
+  alt="Gerstner wave extended to three dimensions with surface normals" 
+  caption="Figure 5: Gerstner wave extended to three dimensions with surface normals." 
+/>
+
+The Gerstner wave, like the sine wave, is periodic and has a wavelength, a period, an amplitude, and one extra variable: steepness. Steepness defines how pinched the points become at the peaks and how stretched they are at the troughs.
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\5.png" 
+  alt="Gerstner wave with a steepness of 1.0" 
+  caption="Figure 6: Gerstner wave with a steepness of 1.0." 
+/>
+
+When comparing Figure 4 and Figure 5, notice how much more aggressive the pinching is. When the steepness goes over 1.0, the wave begins to curve into itself which becomes important later.
+
+---
+
+### Many Gerstner Waves
+One Gerster wave is definitely better than a sine wave, but it still doesn’t quite look natural. It’s too mathematically “perfect.” The issue is numbers. One Gerstner wave is unremarkable, but adding together multiple creates a chaotic surface that is far more similar to the real ocean.
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\6.png" 
+  alt="Total of 6 Gerstner waves summed together" 
+  caption="Figure 7: Total of 6 Gerstner waves summed together." 
+/>
+
+An important factor when adding together multiple waves is their variables. The waves should be going in different directions to create a chaotic surface. However, waves that are less similar to the wind direction should be lower in amplitude and higher in wavelength and steepness. This creates a nuanced surface that still has a defined shape and direction.
+
+### Making the Ocean Infinite
+
+Oceans in real life aren’t just one tile in a gray background however. They seem to stretch on forever. The problem is, computers struggle with simulation things that big and it’s especially impossible in real time. The solution is to model the ocean in decreasing amounts of detail over distance until it simply becomes a flat plane.
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\7.png" 
+  alt="2D abstraction of frustum culling and octree rendering" 
+  caption="Figure 8: 2D abstraction of frustum culling and octree rendering, from Figure 3 of “Taming the beast: Free and open-source massive point cloud web visualization.”" 
+/>
+
+In Figure 7, the yellow dot is the camera’s position, and the red lines define the field of view of the observer. By increasingly splitting the infinite plane of the ocean into smaller and smaller “chunks” the closer they are to the observer, less detail can be rendered at a distance without losing much visual fidelity. Moreover, only lower frequency waves can be computed at longer distances since higher frequency waves will essentially be impossible to see.
+
+This approach is great for more stylized water that looks good, but to achieve photorealism, modern approaches are based off of an approach described by Jerry Tessendorf in his 2004 paper, “Simulating Ocean Water.” In it, he uses an **inverse fast fourier transform** to sum up the Gerstner waves by converting them from the frequency domain to the time domain. The incredible speed of a **fast fourier transform** means that thousands to hundreds of thousands to millions of Gerstner waves can be simulated in real time on modern GPUs. This models everything from the smallest ripples to the huge swells to capture incredible detail.
+
+### Buoyancy Simulation
+
+At its core, buoyancy is defined very simply mathematically. **Archimedes’ principle** is an upwards force described by $F = -pgV$, where $p$ is fluid density, $g$ is the gravitational acceleration on the object, and $V$ is the volume of fluid displaced by the object. While $p$ and $g$ are basically just constants that can be messed around with, $V$ is where the core part of the simulation comes in.
+
+While computing cross sectional area for basic primitives intersecting a flat plane is a bit challenging but manageable, computing it for a *complex surface* with a complex shape is near impossible in real time. So, like always, corners have to be cut. While there are many ways to go about this, I decided to use a voxelized approach.
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\8.png" 
+  alt="A 3D rectangle submerged in a body of water. The orange rectangle represents the center of buoyancy and its corresponding force" 
+  caption="Figure 9: A 3D rectangle submerged in a body of water. The orange rectangle represents the center of buoyancy and its corresponding force." 
+/>
+
+To calculate the volume, I split it into small cubes that use a very rough **linear** approximation of how much water they displace. By using more small cubes, the accuracy of the simulation increases but it costs more time to compute. In figure 8, the green boundaries define the cubes, or voxels, that make up the larger rectangular body. Some are submerged completely, some are partially, and the ones at the top are above the surface.
+
+While plugging the volume into Archimedes’ principle gives a force, it doesn’t say *where* on the object to apply the force. The force is actually applied at a center of buoyancy, which is the center of the displaced volume. The voxelized approach also makes this very easy to calculate as well. It’s simply the **average** of the positions of the submerged voxels.
+
+An important factor of buoyancy and interacting with the water in general is finding the height at a specific point. At first, it seems like the same calculations to calculate the displacement at a certain point can also calculate the height. Not exactly, because Gerstner waves displace on all axes, not just the Y axis. Many games approach this by sampling the displacement 3-5 times and continuously inching towards the correct height. 
+
+However, I decided to use a different approach. Since the ocean is a standard grid of triangles, for some point (x,y,z) I calculate what triangle that point would lie in, generate a plane from the triangle’s three points.
+
+Then I do a standard ray-plane intersection to find where along the triangle the specific position would lie. As far as I know, this approach is completely unique and gives more accurate results for less displacement samples than traditional techniques.
+
+### Drag
+
+Drag is very important. Without it, the object would just constantly oscillate and bounce. Calculating the drag of a complex surface of an object in a fluid is something people spend decades of their life researching, so I’m going to go for a crude approximation that finds roughly how much surface area is in the same direction of the velocity of the object, and multiply that by how much of the volume is submerged, the magnitude of its velocity, and some random constants. It’s very easy to apply this to rotational and linear velocity and it’s inexpensive to compute. The most important thing is that it stops the oscillations and stabilizes the simulation.
+
+### Results
+
+The ocean, while not photorealistic, still looks good. Performance tests across a variety of devices show a total frame time of less than 2 ms. For reference, the target of most real time applications is 60 frames per second (FPS), which gives about 16.66 ms per frame. For multiplayer applications, a clock that was synchronized to the server ensured that the waves were in the same phase across each player.
+
+The buoyancy simulation was very stable, but required some modification to work with the existing sailing and rudder mechanics on ships. Moreover, the original simulation actually allowed waves to nudge the object on the horizontal axes. However, that was reduced for game design purposes, as having ships slowly inch away over time was bad user experience.
+
+### Future Plans
+
+The main issue with the ocean is the lack of any real interaction with shorelines. In real life, as the water gets shallow, it alters the direction of the wave to crash into the shoreline. Moreover, physical objects also create wind shadows, essential areas where wind is blocked and waves do not form as significantly. Faking these things involve a lot of advanced techniques that I’d love to learn in the future. For now, shallow areas essentially reduce the amplitude of waves and slowly interpolate to a calm pattern, but waves don’t actually crash into the shores
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\11.png" 
+  alt="A picture demonstrating the “wind shadow” effect. Taken from “Ocean simulation and rendering in War Thunder”" 
+  caption="Figure 10: A picture demonstrating the “wind shadow” effect. Taken from “Ocean simulation and rendering in War Thunder”" 
+/>
+
+Another thing missing is foam and spray. Foam is everything from bubbles to organic matter, attached to the surface of the water and creating white caps. Spray is water particles that actually exit the surface and splash around. To achieve realistic looks, both are necessary. Foam is relatively easy to calculate using Tessendorf’s approach, so I’d love to explore an ocean using the fourier transform in the future. Spray is more difficult since there is no actual fluid simulation, so instead it has to be faked by manually creating particle effects wherever spray occurs. I’ve done this a bit with the ships—where sea spray particles will occur when the ship breaks through a wave instead of riding it—but I’d love to achieve a much more stylized look with foam, similar to how the developers of Sea of Thieves approached their artistic stylization.
+
+<DynamicImageWithCaption 
+  src="\blog\ocean-simulation\11.png" 
+  alt="A picture from Google images showing the artistic implications of sea foam and sea spray" 
+  caption="Figure 11: A picture from Google images showing the artistic implications of sea foam and sea spray" 
+/>
