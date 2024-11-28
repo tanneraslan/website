@@ -92,14 +92,14 @@ export const BottomNav = (props: any) => {
           <Button
             hover={hover}
             offsetX={offsetX}
-            href="mailto:tanneraslan05@gmail.com"
+            href="mailto:contact@tanneraslan.com"
           >
             <GitHubLogoIcon />
           </Button>
           <Button
             hover={hover}
             offsetX={offsetX}
-            href="mailto:tanneraslan05@gmail.com"
+            href="mailto:contact@tanneraslan.com"
           >
             <Mail />
           </Button>

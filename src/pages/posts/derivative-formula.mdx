@@ -66,11 +66,11 @@ $$ \binom{2}{0} = 1, \binom{2}{1} = 2, \binom{2}{2} = 1 $$
 
 Now, let's add this back to our series and multiply it by $f(x+hk)$:
 
-$$ f^{(n)}(x) = \lim\limits_{h \to 0} \sum\limits_{k=0}^n \binom{n}{k} \times (-1)^k \times f(x+hk) $$
+$$ f^{(n)}(x) = \lim\limits_{h \to 0} \sum\limits_{k=0}^n \binom{n}{k} \cdot (-1)^k \cdot f(x+hk) $$
 
 Don't forget to add the denominators of h:
 
-$$ f^{(n)}(x) = \lim\limits_{h \to 0} \cfrac{\sum\limits_{k=0}^n \binom{n}{k} \times (-1)^k \times f(x+hk)}{h^n} $$
+$$ f^{(n)}(x) = \lim\limits_{h \to 0} \cfrac{\sum\limits_{k=0}^n \binom{n}{k} \cdot (-1)^k \cdot f(x+hk)}{h^n} $$
 
 We have been looking at the coefficients from where $k$ is greatest to when $k$ is least, but if we analyze it from the same direction the series is going (starting at $k=0$), the first $f(x)$ that every derivative starts with has alternates the starting sign:
 
@@ -78,7 +78,7 @@ $$ f''(x) = \frac{\mathbf{+}f(x)-2f(x+h)+f(x+2h)}{h^2} \\ f'''(x) = \frac{\mathb
 
 This means that instead of doing $(-1)^k$, we should instead be using $(-1)^{n-k}$ to account for this difference in ordering:
 
-$$ f^{(n)}(x) = \lim\limits_{h \to 0} \cfrac{\sum\limits_{k=0}^n \binom{n}{k} \times (-1)^{n-k} \times f(x+hk)}{(-h)^n} $$
+$$ f^{(n)}(x) = \lim\limits_{h \to 0} \cfrac{\sum\limits_{k=0}^n \binom{n}{k} \cdot (-1)^{n-k} \cdot f(x+hk)}{(-h)^n} $$
 
 It's complete! The formula works for any function, to any degree, in all cases. But that begs the question: is there really any practical application for this? Well, its complicated...
 

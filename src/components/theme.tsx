@@ -24,7 +24,6 @@ export default function Layout({
     router.pathname.startsWith(i)
   );
 
-  console.log(pageMap)
   const posts = sortBy(
     compact(pageMap.filter((item) => item.name === "posts")[0].children).filter(
       (item) => item.name !== "index"

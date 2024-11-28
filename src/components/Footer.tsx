@@ -1,5 +1,5 @@
 import React from "react";
-import { EnvelopeClosedIcon, GitHubLogoIcon } from "@radix-ui/react-icons";
+import { EnvelopeClosedIcon, GitHubLogoIcon, LinkedInLogoIcon} from "@radix-ui/react-icons";
 
 const Footer: React.FC = () => {
   return (
@@ -7,7 +7,7 @@ const Footer: React.FC = () => {
       <div className="mr-auto">© Tanner Aslan 2024</div>
       <a
         className="flex items-center space-x-1"
-        href="mailto:tanneraslan05@gmail.com"
+        href="mailto:contact@tanneraslan.com"
       >
         <EnvelopeClosedIcon />
         <span>Email</span>
@@ -17,6 +17,12 @@ const Footer: React.FC = () => {
         href="https://github.com/tanneraslan"
       >
         <GitHubLogoIcon /> <span>Github</span>
+      </a>
+      <a
+        className="flex items-center space-x-1"
+        href="https://www.linkedin.com/in/tanner-aslan/"
+      >
+        <LinkedInLogoIcon /> <span>LinkedIn</span>
       </a>
     </footer>
   );
