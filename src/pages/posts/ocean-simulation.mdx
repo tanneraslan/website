@@ -2,7 +2,7 @@
 type: post
 title: The challenges of real time ocean simulation
 description: Oceans are huge and infinitely complex, so how do computers visualize them in real time?
-date: 2024-06-11
+date: 2023-12-21
 tag: graphics, math, simulation
 image: /blog/ocean-simulation/water.gif
 ---
@@ -148,7 +148,7 @@ The main issue with the ocean is the lack of any real interaction with shoreline
 Another thing missing is foam and spray. Foam is everything from bubbles to organic matter, attached to the surface of the water and creating white caps. Spray is water particles that actually exit the surface and splash around. To achieve realistic looks, both are necessary. Foam is relatively easy to calculate using Tessendorf’s approach, so I’d love to explore an ocean using the fourier transform in the future. Spray is more difficult since there is no actual fluid simulation, so instead it has to be faked by manually creating particle effects wherever spray occurs. I’ve done this a bit with the ships—where sea spray particles will occur when the ship breaks through a wave instead of riding it—but I’d love to achieve a much more stylized look with foam, similar to how the developers of Sea of Thieves approached their artistic stylization.
 
 <DynamicImageWithCaption 
-  src="\blog\ocean-simulation\11.png" 
+  src="\blog\ocean-simulation\12.png" 
   alt="A picture from Google images showing the artistic implications of sea foam and sea spray" 
   caption="Figure 11: A picture from Google images showing the artistic implications of sea foam and sea spray" 
 />
