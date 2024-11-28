@@ -24,6 +24,7 @@ export default function Layout({
     router.pathname.startsWith(i)
   );
 
+  console.log(pageMap)
   const pagePosts = pageMap.find((item) => item?.name === "posts");
   const posts = pagePosts ? sortBy(
     compact(pagePosts.children).filter(
