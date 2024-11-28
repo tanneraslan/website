@@ -24,12 +24,14 @@ export default function Layout({
     router.pathname.startsWith(i)
   );
 
-  const posts = sortBy(
-    compact(pageMap.filter((item) => item.name === "posts")[0].children).filter(
+  const pagePosts = pageMap.find((item) => item?.name === "posts");
+  const posts = pagePosts ? sortBy(
+    compact(pagePosts.children).filter(
       (item) => item.name !== "index"
     ),
     "frontMatter.date"
-  ).reverse();
+  ).reverse() : [];
+
 
   return (
     <div className="md:px-0 px-4 py-12">
