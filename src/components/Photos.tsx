@@ -2,7 +2,7 @@ const PHOTOS_LIST = [
   "/blog/lights.png",
   "/blog/lights.png",
   "/blog/lights.png",
-  "/blog/lights.png",
+  "/blog/ship.png",
   "/blog/lights.png",
   "/blog/lights.png",
 ];

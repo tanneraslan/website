@@ -28,14 +28,10 @@ export const Score = (props: any) => {
   }
 
   const init = async () => {
-    console.log(props);
-
     await WebMscore.ready;
     const data = await fetch(`/music/${props.id}.mscz`);
     const buffer = await data.arrayBuffer();
     const score = await WebMscore.load("mscz", new Uint8Array(buffer));
-    console.log("score", score);
-    console.log("asasdasdasda");
 
     let elms = [];
     const n = await score.npages();
