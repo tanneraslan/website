@@ -6,7 +6,7 @@ export const Grid = () => {
   const { scrollY } = useScroll();
   const scale = useTransform(scrollY, [0, 1000], [1.1, 1]);
   const opacity = useTransform(scrollY, [0, 1000], [1, 0]);
-
+  
   return (
     <motion.div
       className="fixed z-0 top-0 left-0 right-0 grid bottom-0 "
