@@ -7,6 +7,7 @@ const DynamicImageWithCaption = ({ src, alt, caption}) => {
       <img
         src={src}
         alt={alt}
+        loading="lazy"
         title={alt}
         style={{ maxWidth: "100%", height: "auto", marginBottom: "5px" }} // Reduce bottom margin
       />
