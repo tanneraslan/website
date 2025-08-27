@@ -1,26 +1,73 @@
 const PHOTOS_LIST = [
-  "/blog/lights.png",
-  "/blog/lights.png",
-  "/blog/lights.png",
-  "/blog/ship.png",
-  "/blog/lights.png",
-  "/blog/lights.png",
+  "/blog/my-trip-to-sf/20250505_152407.jpg",
+  "/blog/my-trip-to-sf/20250505_160119.jpg",
+  "/blog/my-trip-to-sf/20250506_104959.jpg",
+  "/blog/my-trip-to-sf/20250506_122546.jpg",
+  "/blog/my-trip-to-sf/20250506_131736.jpg",  
+  "/blog/my-trip-to-sf/20250506_172450.jpg",
+  "/blog/my-trip-to-sf/20250507_112614.jpg",
+  "/blog/my-trip-to-sf/20250507_124226.jpg",
+  "/blog/my-trip-to-sf/20250507_140045.jpg",
+  "/blog/my-trip-to-sf/20250508_184707.jpg",
+  "/blog/my-trip-to-sf/20250508_184744.jpg",
+  "/blog/my-trip-to-sf/20250508_195740.jpg",
+  "/blog/my-trip-to-sf/20250508_200149.jpg",
+  "/blog/nyc/20250530_205352.webp",
+  "/blog/nyc/20250601_145935.webp",
+  "/blog/nyc/20250601_165406.webp",
+  "/blog/nyc/20250602_123502.webp",
+  "/blog/nyc/20250603_194214.webp",
+  "/blog/nyc/20250611_174908.webp",
+  "/blog/nyc/20250612_214054.webp",
+  "/blog/nyc/20250614_165459.webp",
+  "/blog/nyc/20250619_190005.webp",
+  "/blog/nyc/20250619_204728.webp",
+  "/blog/nyc/20250623_204946.webp",
+  "/blog/nyc/20250623_210314.webp",
+  "/blog/nyc/20250626_194622.webp",
+  "/blog/nyc/20250626_200052.webp",
+  "/blog/nyc/20250711_172037.webp",
+  "/blog/nyc/20250711_185344.webp",
+  "/blog/nyc/20250712_114929.webp",
+  "/blog/nyc/20250712_183817.webp",
+  "/blog/nyc/20250717_191824.webp",
+  "/blog/nyc/20250719_134750.webp",
+  "/blog/nyc/20250719_141417.webp",
+  "/blog/nyc/20250719_151747.webp",
+  "/blog/nyc/20250720_131831.webp",
+  "/blog/nyc/20250720_133624.webp",
+  "/blog/nyc/20250722_200444.webp",
+  "/blog/nyc/20250724_182841.webp",
+  "/blog/nyc/20250725_201436.webp",
+  "/blog/nyc/20250801_214303.webp",
+  "/blog/nyc/20250801_222259.webp",
+  "/blog/nyc/20250801_222536.webp",
+  "/blog/nyc/20250823_132829.webp",
+  "/blog/nyc/20250823_172758.webp",
+  "/blog/nyc/20250823_180222.webp",
+  "/blog/nyc/20250823_180257.webp",
+  "/blog/nyc/20250823_180437.webp",
+  "/blog/nyc/20250823_180629.webp",
+  "/blog/vancouver/20250808_224931.webp",
+  "/blog/vancouver/20250809_100527.webp",
+  "/blog/vancouver/20250809_100730.webp",
+  "/blog/vancouver/20250809_101843.webp",
+  "/blog/vancouver/20250809_122257.webp",
+  "/blog/vancouver/20250811_102840.webp",
+  "/blog/vancouver/20250811_150328.webp",
+  "/blog/vancouver/20250811_210123.webp",
+  "/blog/vancouver/20250811_210355.webp",
+  "/blog/vancouver/20250813_153039.webp",
+  "/blog/vancouver/20250814_112711.webp",
+  "/blog/vancouver/20250814_172546.webp",
+  "/blog/vancouver/20250815_025245.webp",
 ];
+
 export const Photos = () => {
   return (
-    <div
-      className="grid gap-2"
-      style={{
-        gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-      }}
-    >
+    <div className="gallery">
       {PHOTOS_LIST.map((photo) => (
-        <div
-          key={photo}
-          className="block  aspect-square overflow-hidden relative"
-        >
-          <img src={photo} className="object-cover w-full h-full" />
-        </div>
+        <img src={photo} className="image" />
       ))}
     </div>
   );
