@@ -41,7 +41,7 @@ export default function Layout({
       <Grid />
 
       {hideContainer ? (
-        <div className="relative px-0 md:mt-4 md:px-6">{children}</div>
+        <div className="relative px-0 md:mt-4">{children}</div>
       ) : (
         <div className="theme">
           <Theme pageOpts={{ ...pageOpts, pageMap: [] }} {...rest}>

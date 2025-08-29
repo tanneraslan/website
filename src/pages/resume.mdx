@@ -1,101 +1,81 @@
 ---
 type: page
 title: Resume
-date: 2023-04-01
+date: 2025-08-29
 ---
 
+import ResumeRow from "../components/ResumeRow";
+
 # Tanner Aslan  
-**Phone:** (502)-389-7540  
 **Email:** [contact@tanneraslan.com](mailto:contact@tanneraslan.com)  
-**Location:** Louisville, KY / Ann Arbor, MI  
 **Website:** [tanneraslan.com](http://tanneraslan.com)  
+**LinkedIn:** [linkedin.com/in/tanner-aslan](https://www.linkedin.com/in/tanner-aslan)  
+**Citizenship:** U.S.  
 
 ---
 
 ## Education  
 
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  <span>**University of Michigan - Ann Arbor, MI**</span>
-  <span>August 2024 – Present</span>
-</div>  
-- Class of 2028; Pursuing a B.S. in Computer Science  
+<ResumeRow left="Northwestern University – Evanston, IL" right="Expected March 2027" />  
+- BA in Computer Science  
+- GPA: 4.00 / 4.00  
+- **Courses:** Introduction to Computer Graphics, Introduction to Computer Systems  
 
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  <span>**Ballard High School - Louisville, KY**</span>
-  <span>August 2020 – May 2024</span>
-</div>  
-- Class of 2024; Achieved Valedictorian status with 4.23 GPA and 35 ACT; awarded Seal of Arts Excellence.  
-- **Relevant Coursework:** AP Computer Science A, AP Calculus BC, AP Biology, AP Statistics, AP Music Theory.  
-- Numerous science fair awards including:  
-  - 1st place for *Creating an AI to Pursue a Moving Target*  
-  - 2nd place for *Real-Time Ocean Simulation*  
-
----
-
-## Skills & Proficiencies  
-
-- **Programming Languages:** Lua, Python, Java, C, C++, GLSL, JavaScript; well-versed in OOP concepts.  
-- **Software Development:** GitHub, Visual Studio Code, IntelliJ IDEA; experience with Ubuntu/Linux systems.  
-- **Computer Hardware:** Built and maintained desktop computers; expertise in hardware compatibility and user-specific performance tuning.  
-- **Office Skills:** Proficient in Google Suite and Microsoft Office 365; typing speed of 100+ WPM.  
-
----
-
-## Projects  
-
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  <span>**Personal Website**</span>
-  <span>December 2023 – Present</span>
-</div>  
-- Built using Next.js, React, and programmed in TypeScript.  
-- Deployed and hosted on Vercel with pages designed in markdown for flexibility.  
-- Added support for executable shader code (GLSLCanvas) and LaTeX for math equations.  
-
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  <span>**Chess Engine & AI**</span>
-  <span>March 2023 – June 2023</span>
-</div>  
-- Developed a chess board and AI using Java, with a user interface built with JavaFX.  
-- Implemented minimax algorithm with alpha-beta pruning for strategic move prediction.  
-- Achieved an online chess rating of nearly 1900 on lichess.org.  
-
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  <span>**Ocean Simulation**</span>
-  <span>December 2021 – Present</span>
-</div>  
-- Designed an ocean simulation using summed Gerstner waves and vertex displacement.  
-- Developed a voxelized buoyancy model to simulate floating object behavior.  
-
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  <span>**Light Simulation**</span>
-  <span>June 2022 – Present</span>
-</div>  
-- Created realistic light diffusion models in 2D using path tracing and SDFs.  
-- Combined GLSL shaders and C++ with OpenGL for interactive simulations.  
-- **Demo and Article:** [Light Simulation Demo](https://tanneraslan.com/posts/light-beams).  
+<ResumeRow left="University of Michigan – Ann Arbor, MI" right="August 2024 – May 2025" />  
+- BS in Computer Science  
+- GPA: 3.96 / 4.00  
+- **Courses:** Data Structures & Algorithms, Foundations of Computer Science, Discrete Mathematics, Statistics and Data Analysis  
 
 ---
 
 ## Work Experience  
 
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  <span>**University of Michigan Information and Technology Services**</span>
-  <span>September 2024 – Present</span>
-</div>  
-- Provided technical support and tailored recommendations for students and faculty.  
-- Managed inventory, handled POS transactions, and completed Apple SEED courses.  
+<ResumeRow left="SeatGeek – New York City, NY" right="June 2025 – August 2025" />  
+*Software Engineering Intern – FanX Checkout Team*  
+- Designed and shipped an **Accelerated Checkout** system that persisted user data across sessions without login, resulting in a **7% increase in conversions** and **14% shorter checkout flows**, validated through A/B testing with Optimizely, Eppo, and Mixpanel.  
+- Delivered incremental **UX improvements** through bug fixes, accessibility enhancements, and UI layout changes.  
+- Reduced **technical debt** by refactoring and deprecating legacy components during migration to a new stateful checkout API.  
+- Implemented **Redux middleware** to reconcile unexpected API response changes, preventing fatal errors and session termination.  
 
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  <span>**Kentuckiana Youth Poet Laureate**</span>
-  <span>June 2024 – August 2024</span>
-</div>  
-- Designed promotional materials, set up A/V for events, and contributed to website setup.  
+<ResumeRow left="SIGGRAPH – Vancouver, BC" right="August 2025" />  
+*Student Volunteer – SIGGRAPH 2025*  
+- Assisted with conference programs and organization, contributing **16 hours of volunteering** over 6 days.  
 
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  <span>**Quaternion Entertainment**</span>
-  <span>January 2020 – March 2023</span>
-</div>  
-- Programmed and designed games for ROBLOX, achieving 20M+ plays and 15k+ server members.  
-- Collaborated with developers and QA testers to enhance game quality.  
+<ResumeRow left="Quaternion Entertainment – Remote" right="January 2020 – March 2023" />  
+*Scripting and User Interface Design – Game Development Team*  
+- Programmed and designed games for a ROBLOX studio, achieving **20M+ plays** and a **15k+ member community**.  
+- Earned **~$24,000** from a 30% share of profits via a custom in-game store.  
+- Built an **anti-cheat system** detecting unnatural player behaviors, reducing cheating reports by ~60%.  
 
 ---
+
+## Projects  
+
+<ResumeRow left="Shadercn.com" right="July 2025 – Present" extras="Vercel, React, Tailwind, Next.js, Nextra, MDX, WebGL, GLSL"/>  
+- Open source collection of typed React components for shipping **WebGL shaders** with websites.  
+- Built with Next.js, deployed on Vercel, bootstrapped with Nextra, and documented with MDX.  
+- Added configurable props for shader components to enable customization without editing source code.  
+
+<ResumeRow left="Personal Website" right="May 2024 – Present" extras="Vercel, React, Tailwind, Next.js, Nextra, MDX" />  
+- Streamlined page creation using **Nextra + MDX** for customizable and user-friendly pages.  
+- Integrated React components for LaTeX, GLSL shaders, and sheet music.  
+- Deployed on Vercel with optimized server-side rendering for performance.  
+
+<ResumeRow left="StudentVerifier" right="January 2025 – April 2025" extras="Python, PostgreSQL, smtplib, discord.py, psycopg2" />  
+- Built a Discord bot to verify University of Michigan students via the **MCommunity API** and student emails.  
+- Used an SMTP server to send one-time codes with smtplib.  
+- Linked Discord user IDs to student emails with PostgreSQL to prevent duplicate accounts.  
+
+<ResumeRow left="Ocean Simulation" right="April 2024 – July 2024" extras="C++20, OpenGL 4.6, GLFW, GLM, CMake" />  
+- Implemented **compute shaders** for wave displacement, achieving a **600% speedup** over CPU methods.  
+- Added **tessellation shaders** for efficient rendering of an infinite ocean.  
+- Developed a **voxel-based flotation model** for drag and buoyancy calculations.  
+
+---
+
+## Technical Skills  
+
+- **Languages:** C++, C, TypeScript, Python, Lua, Java, GLSL, Slang, Bash, R, LaTeX, SQL  
+- **Libraries:** OpenGL, GLFW, GLM, React, Next.js, Tailwind, Redux, JavaFX, FastAPI, smtplib, psycopg2, Jest  
+- **Tools:** CMake, Vercel, Git, Jira, Docker, Postman, Proxyman, Figma, Ubuntu, npm, pip, Mixpanel, Eppo, Optimizely, Spreedly, Datadog  
+- **Concepts:** OOP, REST API design, Statistics, Parallel Computing, Agile Development, System Design  
