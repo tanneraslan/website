@@ -112,6 +112,10 @@ const PHOTOS_LIST: PhotoGroup = {
 import { useState, useRef, useEffect } from "react";
 
 function sortPhotosToOptimalPack(photos: Photo[], numColumns: number): Photo[] {
+  if (numColumns <= 1) {
+    return photos;
+  }
+
   const totalAspectRatio = photos.reduce((acc, photo) => acc + photo.aspectRatio, 0);
   const optimalPackSize = totalAspectRatio / numColumns;
 
@@ -127,12 +131,12 @@ function sortPhotosToOptimalPack(photos: Photo[], numColumns: number): Photo[] {
 
   const sorted = [...photos].sort((a, b) => a.aspectRatio - b.aspectRatio);
   sorted.forEach(photo => {
-    const optimalBucket = buckets.length > 0 ? buckets.reduce((minItem, currentItem) => {
+    const optimalBucket = buckets.reduce((minItem, currentItem) => {
       if (Math.abs(optimalPackSize - (currentItem.TotalAspectRatio + photo.aspectRatio)) > Math.abs(optimalPackSize - (minItem.TotalAspectRatio + photo.aspectRatio))) {
         return currentItem;
       }
       return minItem;
-    }) : buckets[0];
+    });
 
     optimalBucket.Photos.push(photo);
     optimalBucket.TotalAspectRatio += photo.aspectRatio;
