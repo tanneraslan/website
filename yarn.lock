@@ -1968,13 +1968,6 @@
     "@radix-ui/react-visually-hidden" "^1.0.3"
     classnames "^2.3.2"
 
-"@signal-noise/react-shader-canvas@^0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@signal-noise/react-shader-canvas/-/react-shader-canvas-0.0.3.tgz#b9da319799e1b1559ba7e5fca11cdf26002e8bad"
-  integrity sha512-l7wvk7wf3yxVZ66TCmCc9cs2sxz7FXjlNAKPJrSi+Qy1gYDJxqkuKz/Lsdsp1G69SLN52xRVH0SIqRg/ppdrag==
-  dependencies:
-    glslCanvas "^0.1.7"
-
 "@svgr/babel-plugin-add-jsx-attribute@8.0.0":
   version "8.0.0"
   resolved "https://registry.yarnpkg.com/@svgr/babel-plugin-add-jsx-attribute/-/babel-plugin-add-jsx-attribute-8.0.0.tgz#4001f5d5dd87fa13303e36ee106e3ff3a7eb8b22"
@@ -3410,13 +3403,6 @@ glsl-canvas-js@^0.2.9:
   dependencies:
     gl-matrix "3.3.0"
     promise-polyfill "8.2.0"
-
-glslCanvas@^0.1.7:
-  version "0.1.9"
-  resolved "https://registry.yarnpkg.com/glslCanvas/-/glslCanvas-0.1.9.tgz#9653eb2f8fdd18fc3191a51d2cffc6b5b8ac77e6"
-  integrity sha512-TORTr5DQlTad1qt0JsyVpCGWJnyQUg3fiA3lChzy8NcNx8zAZNODW4KS+jLArGgzXjb1mHyiiq4YagxssFFN3Q==
-  dependencies:
-    xhr "^2.6.0"
 
 glslCanvas@^0.2.6:
   version "0.2.6"

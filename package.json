@@ -16,7 +16,6 @@
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-icons": "^1.3.0",
     "@radix-ui/themes": "^2.0.3",
-    "@signal-noise/react-shader-canvas": "^0.0.3",
     "@svgr/webpack": "^8.1.0",
     "@tailwindcss/typography": "^0.5.10",
     "@types/lodash": "^4.14.202",
