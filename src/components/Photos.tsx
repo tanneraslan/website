@@ -1,3 +1,5 @@
+"use client";
+
 type Photo = {
   src: string;
   aspectRatio: number;
