@@ -35,12 +35,13 @@ export default function ClientLayout({ children, pageMap }: { children: React.Re
 
       <div className="relative pointer-events-none">
         <header className="mx-auto max-w-3xl px-6 w-full pt-12">
-          <div className="display-contents pointer-events-auto"> <Top />
+          <div className="display-contents pointer-events-auto">
+            <Top />
             <BottomNav />
           </div>
         </header>
 
-        <main className={`w-full ${isFullWidth ? "" : "mx-auto max-w-3xl px-6"}`}>
+        <main className={`w-full z-0 ${isFullWidth ? "" : "mx-auto max-w-3xl px-6"}`}>
           <Layout>
             <article
               className={`${isFullWidth ? "mt-4" : "prose dark:prose-invert max-w-none mt-4"} pointer-events-auto`}

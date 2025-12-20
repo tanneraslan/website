@@ -19,11 +19,11 @@ export default function PostList({ posts }: { posts: MdxFile<FrontMatter>[] }) {
           <Card className="group-hover:bg-gray-3 transition-colors relative overflow-hidden">
             <Link
               href={item.route}
-              className="absolute inset-0 z-0"
+              className="absolute inset-0"
               aria-label={item.frontMatter?.title}
             />
 
-            <div className="relative z-10 flex flex-col justify-start md:grid p-4 grid-cols-5 gap-8 items-center md:space-x-8 pointer-events-none">
+            <div className="relative flex flex-col justify-start md:grid p-4 grid-cols-5 gap-8 items-center md:space-x-8 pointer-events-none">
               <div className={`flex flex-col w-full text-left justify-between flex-1 h-full ${item.frontMatter?.image ? "col-span-3" : "col-span-5"}`}>
                 <div className="text-lg pb-2 font-bold">{item.frontMatter?.title}</div>
                 <div className="text-sm text-gray-11 mb-4">
