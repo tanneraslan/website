@@ -40,7 +40,7 @@ const Button = (props: any) => {
       <Link
         className="h-10 w-10 text-gray-11 rounded-full bg-gray-3 relative border border-gray-4 flex items-center justify-center"
         href={props.href}
-        target={ props.openNewTab ? "_blank" : undefined} 
+        target={ props.openNewTab ? "_blank" : undefined}
       >
         {props.children}
       </Link>

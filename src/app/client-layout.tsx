@@ -6,40 +6,10 @@ import { Top } from "@/components/Top";
 import { BottomNav } from "@/components/BottomNav";
 import { Grid } from "@/components/Grid";
 import Footer from "@/components/Footer";
-import PostTags from "@/components/PostTags";
+import PostList from "@/components/PostList";
 import PostHeader from "@/components/PostHeader";
 import { Layout } from "nextra-theme-blog";
-import Link from "next/link";
-import Image from "next/image";
-import { Card } from "@radix-ui/themes";
-import { compact, sortBy, truncate } from "lodash";
-
-function PostList({ posts }: { posts: MdxFile<FrontMatter>[] }) {
-  return (
-    <div className="space-y-4 flex flex-col mt-8 pointer-events-auto">
-      {posts.map((item) => (
-        <Link href={item.route} className="!no-underline" key={item.name}>
-          <Card className="hover:bg-gray-3 relative overflow-hidden">
-            <div className="relative flex flex-col justify-start md:grid p-4 grid-cols-5 gap-8 items-center md:space-x-8">
-              <div className={`flex flex-col w-full text-left justify-between flex-1 h-full ${item.frontMatter?.image ? "col-span-3" : "col-span-5"}`}>
-                <div className="no-underline text-lg pb-2 font-bold">{item.frontMatter?.title}</div>
-                <div className="no-underline text-sm text-gray-11 mb-4">
-                  {truncate(item.frontMatter?.description, { length: 140 })}
-                </div>
-                <PostTags tags={item.frontMatter?.tag}/>
-              </div>
-              {item.frontMatter?.image && (
-                <div className="col-span-2">
-                  <img className="rounded-md w-full !m-0 border border-gray-4" src={item.frontMatter.image} alt="" />
-                </div>
-              )}
-            </div>
-          </Card>
-        </Link>
-      ))}
-    </div>
-  );
-}
+import { compact, sortBy } from "lodash";
 
 export default function ClientLayout({ children, pageMap }: { children: React.ReactNode, pageMap : PageMapItem[] }) {
   const pathname = usePathname();
