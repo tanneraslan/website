@@ -8,24 +8,29 @@ import { Grid } from "@/components/Grid";
 import Footer from "@/components/Footer";
 import PostList from "@/components/PostList";
 import PostHeader from "@/components/PostHeader";
+import MusicList from "@/components/MusicList";
+import MusicLayout from "@/components/MusicLayout";
 import { Layout } from "nextra-theme-blog";
 import { compact, sortBy } from "lodash";
 
 export default function ClientLayout({ children, pageMap }: { children: React.ReactNode, pageMap : PageMapItem[] }) {
   const pathname = usePathname();
 
-  const isFullWidth = ["/photos", "/music/"].some((i) =>
-    pathname.startsWith(i)
-  );
+  const isFullWidth = pathname === "/photos" || (pathname.startsWith("/music") && pathname.length > 6);
 
-  const lastSlashIndex = pathname.lastIndexOf('/');
-  const pagePosts = pageMap.find((item) => 'name' in item && item.name === "posts") as Folder;
-  const posts = (pagePosts ? sortBy(
-    compact(pagePosts.children).filter((item) => 'frontMatter' in item && item.name !== "index"),
-    "frontMatter.date"
-  ).reverse() : []) as MdxFile<FrontMatter>[];
+  const getFiles = (folderName: string) => {
+    const folder = pageMap.find((item) => 'name' in item && item.name === folderName) as Folder;
+    return folder ? sortBy(
+      compact(folder.children).filter((item) => 'frontMatter' in item && item.name !== "index"),
+      "frontMatter.date"
+    ).reverse() as MdxFile<FrontMatter>[] : [];
+  }
 
-  const currentPostData = pathname.slice(lastSlashIndex - 5, 6) === 'posts' ? posts.find((item) => item.name === pathname.slice(lastSlashIndex + 1)) : undefined;
+  const posts = getFiles("posts");
+  const music = getFiles("music");
+
+  const currentPostData = posts.find((item) => item.route === pathname);
+  const currentMusicData = music.find((item) => item.route === pathname);
 
   return (
     <div className="antialiased relative min-h-screen">
@@ -46,14 +51,28 @@ export default function ClientLayout({ children, pageMap }: { children: React.Re
             <article
               className={`${isFullWidth ? "mt-4" : "prose dark:prose-invert max-w-none mt-4"} pointer-events-auto`}
             >
-              {currentPostData?.frontMatter && (
-                <PostHeader postFrontMatter={currentPostData.frontMatter} />
+              {/* 3. Conditional Rendering Logic */}
+              {currentMusicData ? (
+                // If it's a music page, wrap children in MusicLayout
+                <MusicLayout frontMatter={currentMusicData.frontMatter as any}>
+                  {children}
+                </MusicLayout>
+              ) : (
+                // Otherwise, render standard post header + children
+                <>
+                  {currentPostData?.frontMatter && (
+                    <PostHeader postFrontMatter={currentPostData.frontMatter} />
+                  )}
+                  {children}
+                </>
               )}
-              {children}
             </article>
 
             {pathname === "/" && (
               <PostList posts={posts}/>
+            )}
+            {pathname === "/music" && (
+              <MusicList music={music}/>
             )}
           </Layout>
         </main>

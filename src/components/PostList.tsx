@@ -16,7 +16,18 @@ export default function PostList({ posts }: { posts: MdxFile<FrontMatter>[] }) {
           className="group relative cursor-pointer"
           onClick={() => router.push(item.route)}
         >
-          <Card className="group-hover:bg-gray-3 transition-colors relative overflow-hidden">
+          <Card className="group-hover:bg-gray-3 transition-colors relative overflow-hidden border border-gray-4 bg-gray-2">
+            {item.frontMatter?.image && (
+              <div
+                className="absolute inset-0 opacity-10 dark:opacity-10 blur-3xl scale-110 pointer-events-none"
+                style={{
+                  backgroundImage: `url(${item.frontMatter.image})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              />
+            )}
+
             <Link
               href={item.route}
               className="absolute inset-0"

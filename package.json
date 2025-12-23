@@ -29,13 +29,16 @@
     "nextra": "^4.6.1",
     "nextra-theme-blog": "^4.6.1",
     "nextra-theme-docs": "^4.6.1",
+    "pdfjs-dist": "^5.4.449",
     "postcss": "^8.4.32",
     "prop-types": "^15.8.1",
     "radix-themes-tw": "^0.0.8",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "react-pdf": "^10.2.0",
     "resize-observer-polyfill": "^1.5.1",
     "tailwindcss": "3.3.2",
+    "wavesurfer.js": "^7.12.1",
     "windy-radix-palette": "^2.0.0-beta.7"
   },
   "devDependencies": {
