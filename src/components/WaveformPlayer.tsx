@@ -32,7 +32,7 @@ export default function WaveformPlayer({ audioSrc }: WaveformPlayerProps) {
 
     const wavesurfer = WaveSurfer.create({
       container: containerRef.current,
-      waveColor: getColor("--gray-9") || "#888888",
+      waveColor: getColor("--gray-6") || "#888888",
       progressColor: getColor("--gray-12") || "#000000",
       cursorColor: "transparent",
       barWidth: 2,
@@ -57,7 +57,7 @@ export default function WaveformPlayer({ audioSrc }: WaveformPlayerProps) {
 
     const observer = new MutationObserver(() => {
       wavesurfer.setOptions({
-        waveColor: getColor("--gray-9"),
+        waveColor: getColor("--gray-6"),
         progressColor: getColor("--gray-12"),
       });
     });
