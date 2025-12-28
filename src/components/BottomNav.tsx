@@ -62,7 +62,7 @@ export const BottomNav = (props: any) => {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onMouseOver={handleMouseOver}
-      className="fixed transform -translate-x-1/2 flex items-center justify-center left-1/2 mb-6 bottom-0 z-10"
+      className="fixed transform -translate-x-1/2 flex items-center justify-center left-1/2 mb-6 bottom-0 z-50"
     >
       <motion.div
         initial="initial"

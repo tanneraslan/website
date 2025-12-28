@@ -1,0 +1,52 @@
+---
+type: post
+date: 2025-12-27
+title: WebGL Engine Demo
+description: A live demo of a custom ECS-based WebGL engine featuring atmospheric scattering, PBR lighting, and procedural terrain.
+tag: project, games, graphics, simulation, shader, raytracing, GLSL
+image: /blog/planet.png
+---
+
+import GameFrame from '@/components/GameFrame'
+
+This is a live demo of my custom ECS-based WebGL engine. It is written in TypeScript and compiled to raw JavaScript, utilizing a custom renderer built on top of raw WebGL2 calls. The source code is available on a public [GitHub repo](https://github.com/tanneraslan/webgl-engine).
+
+### Controls
+* **WASDQE**: Move Camera (Free Mode)
+* **F**: Lock Mouse Cursor (Enable rotation)
+* **G**: Unlock Mouse Cursor
+* **Space**: Enter Surface/Walk Mode (Use WASD to move)
+* **R**: Toggle Focus Mode
+* **1-4**: Change Focus Target
+* **GUI Menu**: Customize procedural generation settings
+
+<GameFrame 
+  src="https://tanneraslan.github.io/webgl-engine/" 
+  title="WebGL Engine Demo"
+  width="100%"
+  height="600px"
+/>
+
+## Technology & Implementation
+
+This engine was built to explore advanced rendering techniques within the constraints of WebGL. The core features include a physically based atmosphere, dynamic water simulation, and procedural terrain generation.
+
+### Atmospheric Scattering
+The atmosphere implementation uses a raymarching algorithm that computes the average density of light rays traveling from the viewer's eye through the atmosphere to the sun. This approach is based on the technique described in **NVIDIA's GPUGems 2 (Chapter 16)**.
+
+One specific challenge was implementing High Dynamic Range (HDR) rendering. Due to inconsistent support for floating-point buffers in WebGL 1.0, I implemented a "fake" HDR effect directly within the atmosphere shader to simulate realistic light intensity and color grading.
+
+### Dynamic Water Rendering
+The water rendering system goes beyond simple diffuse surfaces. It recalculates atmospheric scattering at a lower resolution to create realistic reflections that match the environment. Key water features include:
+* **Reflections**: The ocean surface dynamically reflects the skybox, atmosphere, and scene geometry.
+* **Screen Space Effects**: Includes screen space reflections (SSR) and refractions for greater visual fidelity.
+* **Surface Details**: Normal maps are applied to the ocean surface to simulate waves and ripples, along with Fresnel highlights to mimic the way light glances off water at different angles.
+
+### Lighting and Materials
+The engine supports alternate lighting models for different objects. For example, the satellite model utilizes **Physically-Based Rendering (PBR)** based on the Cook-Torrance BRDF. Additionally, normal maps are used on objects like the satellite to add geometric detail without increasing polygon count.
+
+### Procedural Terrain
+The planet's terrain is texturized using procedural generation. You can tweak the noise parameters (Continents, Mountains, Mask, and Warp Noise) in the demo's GUI to see how the terrain generation algorithms affect the final render.
+
+### Architecture
+The engine is built on a custom Entity Component System (ECS) written in TypeScript. This separates data (components) from logic (systems), allowing for a modular approach where rendering, physics, and input handling operate independently on the entities in the scene.

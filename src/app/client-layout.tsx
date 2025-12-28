@@ -40,7 +40,7 @@ export default function ClientLayout({ children, pageMap }: { children: React.Re
 
       <div className="relative pointer-events-none">
         <header className="mx-auto max-w-3xl px-6 w-full pt-12">
-          <div className="display-contents pointer-events-auto">
+          <div className="display-contents pointer-events-auto z-50">
             <Top />
             <BottomNav />
           </div>
@@ -82,6 +82,8 @@ export default function ClientLayout({ children, pageMap }: { children: React.Re
             <Footer />
           </div>
         </footer>
+
+
       </div>
     </div>
   );
