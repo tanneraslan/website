@@ -1,76 +1,109 @@
 ---
 type: page
 title: Resume
-date: 2025-08-29
+date: 2026-08-02
 ---
 
 import ResumeRow from "../components/ResumeRow";
 
 # Tanner Aslan  
 **Email:** [contact@tanneraslan.com](mailto:contact@tanneraslan.com)  
-**Website:** [tanneraslan.com](http://tanneraslan.com)  
-**LinkedIn:** [linkedin.com/in/tanner-aslan](https://www.linkedin.com/in/tanner-aslan)  
+**Website:** [tanneraslan.com](https://tanneraslan.com)  
+**LinkedIn:** [linkedin.com/in/tanner-aslan](https://www.linkedin.com/in/tanner-aslan/)  
+**GitHub:** [github.com/tanneraslan](https://github.com/tanneraslan)  
 **Citizenship:** U.S.  
 
 ---
 
 ## Education  
 
-<ResumeRow left="University of Michigan – Ann Arbor, MI" right="Expected March 2027" />  
+<ResumeRow left="University of Michigan – Ann Arbor, MI" right="Expected May 2027" />  
 - BS in Computer Science  
-- GPA: 3.96 / 4.00  
-- **Courses:** Data Structures & Algorithms, Foundations of Computer Science, Discrete Mathematics, Statistics and Data Analysis  
+- GPA: 3.98 / 4.00  
+- **Courses:** Data Structures & Algorithms, Computer Graphics, Machine Learning, Web Systems, Software Design, Statistics and Data Analysis, Foundations of Computer Science, Discrete Mathematics  
 
 ---
 
 ## Work Experience  
 
+<ResumeRow left="Klaviyo – Boston, MA" right="June 2026 – August 2026" />  
+*Front-end Software Engineering Intern – Activation Team*  
+- Led and shipped **onboarding experiments** that targeted users based on industry vertical, coordinating PM, Analytics, Design & QA.  
+- Ran a **Statsig A/B test** with Heap instrumentation to raise first-week activation for Hospitality signups, Klaviyo's largest non-ecommerce segment.  
+- Traced an under-enrolling A/B test to an unpopulated upstream field silently excluding **84%** of eligible traffic; re-sourced the field and restarted the experiment cleanly rather than report untrusted data, raising daily enrollment **7x**.  
+- Diagnosed and specified the fix for an **analytics-pipeline bug** (dbt/SQL, Snowflake) that miscounted auto-generated objects as user activations, eliminating a **~38% over-count** in core activation metrics and restoring trust in company-wide experiment data.  
+- Audited 16 non-responsive product surfaces and rebuilt the shared empty-state component around **CSS container queries**; **accepted into the company design system**, consolidating **~20 surfaces**.  
+- Moved to backend and infrastructure work for the **EU data-residency launch**, sweeping every team-owned surface against a US control, filing 9 defects and fixing two EU-only 500s.  
+
+<ResumeRow left="University of Michigan Field Robotics Group – Ann Arbor, MI" right="March 2026 – May 2026" />  
+*Paid Undergraduate Research Assistant (Simulation Engineering)*  
+- Engineered a **GPU-accelerated Side-Scan Sonar simulator** in NVIDIA Isaac Sim, utilizing **NVIDIA Warp** to model acoustic backscatter, interference, and volumetric reverberation in real-time.  
+- Co-authored **"OceanSim 2.0,"** an accepted **IEEE OCEANS 2026** paper demonstrating synthetic acoustic and optical data for training marine perception models.  
+
 <ResumeRow left="SeatGeek – New York City, NY" right="June 2025 – August 2025" />  
-*Software Engineering Intern – FanX Checkout Team*  
-- Launched Accelerated Checkout experiment (persisting user data across sessions) that improved back-to-back **conversion rates by 7%**, reduced average **checkout steps by 14%**, and doubled discount code usage, validated via Optimizely, Eppo, and Mixpanel.
-- Implemented Redux **middleware** to reconcile unexpected API response changes during checkout, handling numerous edge cases that previously caused **fatal errors** and session termination.
-- **Enhanced error handling & UX polish:** improved payment method sorting logic, clarified account linking errors, fixed infinite submission loops, corrected accessibility and mobile UI issues, and moved cart validation to backend to avoid caching issues.
-- Reduced technical debt by refactoring legacy components, deprecating outdated feature flags and interfaces, and supporting the migration to a new stateful checkout API built on **FastAPI**.
+*Full-stack Software Engineering Intern – FanX Checkout Team*  
+- Engineered an **Accelerated Checkout** feature that persisted user session data, driving a **7% increase in conversion rates**, a **14% reduction in checkout steps**, and a **2x increase** in discount code usage.  
+- Modernized checkout architecture by supporting a **FastAPI migration**, refactoring legacy components, and implementing custom **Redux middleware** to gracefully handle API edge cases and prevent **fatal session errors**.  
+- Improved payment method sorting, clarified account linking errors, fixed infinite submission loops, corrected accessibility and mobile UI issues, and moved cart validation to the backend to avoid caching issues.  
+- Validated checkout experiments with **Optimizely, Eppo, and Mixpanel**, measuring conversion and funnel impact across releases.  
 
 <ResumeRow left="SIGGRAPH – Vancouver, BC" right="August 2025" />  
 *Student Volunteer – SIGGRAPH 2025*  
-- Assisted with conference programs and organization, contributing **16 hours of volunteering** over 6 days.  
+- Assisted with conference programs and organization, contributing **16 hours of volunteering** over the 6 days of the conference.  
 
 <ResumeRow left="Quaternion Entertainment – Remote" right="January 2020 – March 2023" />  
 *Scripting and User Interface Design – Game Development Team*  
-- Co-founded ROBLOX game development studio, amassing **20M+** plays, **15k+** member community, and **2.8k** DAU at its peak
-- Earned **~$24,000** from a 30% share of profits via a custom in-game store.  
+- Co-founded ROBLOX game development studio, amassing **20M+** plays, **15k+** member community, and **2.8k** DAU at its peak.  
+- Earned **~$24,000** from a 30% share of game profits through a custom store offering in-game items and power ups.  
 - Built an **anti-cheat system** detecting unnatural player behaviors, reducing cheating reports by **~60%**.  
 
 ---
 
 ## Projects  
 
-<ResumeRow left="Shadercn.com" right="July 2025 – Present" extras="Vercel, React, Tailwind, Next.js, Nextra, MDX, WebGL, GLSL"/>  
-- Open source collection of typed React components for shipping **WebGL shaders** with websites.  
-- Built with Next.js, deployed on Vercel, bootstrapped with Nextra, and documented with MDX.  
-- Added configurable props for shader components to enable customization without editing source code.  
+<ResumeRow left="MaizeMeals" href="https://www.maizemeals.com/" right="February 2026 – Present" extras="Vercel, React, Tailwind, Next.js, Python, Supabase, Sentry, PostHog" />  
+- Building a full-stack **progressive web app** for UofM students to view real-time dining menus, rate food items, and track nutrition.  
+- **Reverse-engineered** the university's undocumented dining API and built a Python scraper to synchronize data with **Supabase**.  
+- Engineered a "Smart Preferences Engine" and a "MaizeMacros" tracking module to dynamically filter and refine meal and dining hall recommendations based on user-defined dietary goals and restrictions.  
 
-<ResumeRow left="Personal Website" right="May 2024 – Present" extras="Vercel, React, Tailwind, Next.js, Nextra, MDX" />  
-- Streamlined page creation using **Nextra + MDX** for customizable and user-friendly pages.  
-- Integrated React components for LaTeX, GLSL shaders, and sheet music.  
-- Deployed on Vercel with optimized server-side rendering for performance.  
+<ResumeRow left="WebGL Engine" href="https://github.com/tanneraslan/webgl-engine" links={[{ label: "View Live Demo", href: "https://tanneraslan.com/posts/engine-demo" }]} right="September 2025 – December 2025" extras="TypeScript, WebGL, GLSL" />  
+- Built a custom **ECS-based engine** in TypeScript that interacts directly with the WebGL 1.0, decoupling rendering data from logic.  
+- Implemented **raymarched atmospheric scattering**, HDR, and a **PBR pipeline** with dynamic water (SSR + refractions) for realistic volumetric lighting.  
+- Leveraged the fragment shader pipeline to **emulate compute shaders**, enabling procedural terrain generation within WebGL 1.0.  
+
+<ResumeRow left="Shadercn" href="https://shadercn.com" right="July 2025 – Present" extras="Vercel, React, Tailwind, Next.js, Nextra, MDX, WebGL, GLSL" />  
+- Built an open source library of typed React components for shipping **WebGL shaders** on websites.  
+- Built with Next.js and deployed with Vercel, bootstrapped with Nextra and using MDX files for documentation.  
+- Added **configurable props** to shader components to allow easy customization without ever having to edit the shader source code.  
 
 <ResumeRow left="StudentVerifier" right="January 2025 – April 2025" extras="Python, PostgreSQL, smtplib, discord.py, psycopg2" />  
-- Built a Discord bot to verify University of Michigan students via the **MCommunity API** and student emails.  
-- Used an SMTP server to send one-time codes with smtplib.  
-- Linked Discord user IDs to student emails with PostgreSQL to prevent duplicate accounts.  
+- Collaborated with another student to create StudentVerifier, a Discord bot that uses University of Michigan's **MCommunity API** and student emails to verify the identity of students in Discord guilds associated with the university.  
+- Utilized an **SMTP server** to send one-time verification codes to student emails, using smtplib to interface with Python.  
+- Associated unique Discord user IDs to student emails using **PostgreSQL** database, preventing multiple users from using one email.  
 
-<ResumeRow left="Ocean Simulation" right="April 2024 – July 2024" extras="C++20, OpenGL 4.6, GLFW, GLM, CMake" />  
-- Implemented **compute shaders** for wave displacement, achieving a **600% speedup** over CPU methods.  
-- Added **tessellation shaders** for efficient rendering of an infinite ocean.  
-- Developed a **voxel-based flotation model** for drag and buoyancy calculations.  
+<ResumeRow left="Personal Website" href="https://github.com/tanneraslan/website" right="May 2024 – Present" extras="Vercel, React, Tailwind, Next.js, Nextra, MDX" />  
+- Streamlined page creation by leveraging **Nextra with MDX**, integrating React components for LaTeX, GLSL shaders, and music.  
+- Optimized performance and scalability by deploying with Vercel and utilizing Next.js for quick server-side rendering.  
+
+<ResumeRow left="Ocean Simulation" right="April 2024 – July 2024" extras="C++20, OpenGL 4.6, GLFW, GLM, CMake, Visual Studio" />  
+- Replaced a summed-Gerstner-wave model with an **inverse FFT over an ocean spectrum**, following Tessendorf's approach, for photorealistic wave detail.  
+- Used **compute shaders** to calculate ocean wave displacement on 2D texture, achieving a **600% speedup** over CPU-based approach.  
+- Implemented **tessellation shaders** that reduce mesh detail at distance, creating the illusion of an infinite ocean with minimal impact to visual fidelity and performance.  
+- Developed a **voxel-based flotation model** that approximates submerged volumes of complex shapes to calculate drag and buoyancy.  
+
+<ResumeRow left="Chess Engine AI" href="https://github.com/tanneraslan/java-chess-engine" right="March 2023 – June 2023" extras="Java, JavaFX" />  
+- Implemented **minimax search** with alpha-beta pruning and move ordering, resulting in a **250% speedup** in AI decisions.  
+- Ranked nearly **1900 ELO** on lichess.org when competing against other bots, making it more skilled than ~95% of human players.  
+
+<ResumeRow left="2D Light Ray Marching" href="https://www.shadertoy.com/view/cttcDN" right="June 2022 – September 2022" extras="GLSL, ShaderToy" />  
+- Developed **ray marching** techniques using **signed distance fields** to simulate light movement and generate realistic soft shadows.  
+- Modified shadow calculations to allow subtle color bleeding, emulating photorealistic **global illumination** without the expense of calculating bounce lighting which allowed the approach to achieve real-time speeds of **less than 15 ms per frame**.  
 
 ---
 
 ## Technical Skills  
 
-- **Languages:** C++, C, TypeScript, Python, Lua, Java, GLSL, Slang, Bash, R, LaTeX, SQL  
-- **Libraries:** OpenGL, GLFW, GLM, React, Next.js, Tailwind, Redux, JavaFX, FastAPI, smtplib, psycopg2, Jest  
-- **Tools:** CMake, Vercel, Git, Jira, Docker, Postman, Proxyman, Figma, Ubuntu, npm, pip, Mixpanel, Eppo, Optimizely, Spreedly, Datadog  
-- **Concepts:** OOP, REST API design, Statistics, Parallel Computing, Agile Development, System Design
+- **Languages:** Python, TypeScript, JavaScript, C++, C, Rust, Java, SQL, GLSL, Slang, Lua, Bash, HTML/CSS, R, LaTeX, C#  
+- **Libraries:** React, Next.js, Node.js, Redux, FastAPI, Tailwind, OpenGL, NVIDIA Warp, pandas, Jest, Cypress, React Testing Library  
+- **Tools:** Git, Docker, AWS, Postgres, Snowflake, dbt, Statsig, Heap, Mixpanel, Datadog, Vercel, CMake, Figma, Jira, Linear, GitHub, GitLab  
+- **Concepts:** System Design, Distributed Systems, REST APIs, Computer Graphics, A/B Testing, Full-Stack, OOP, Design Patterns, Agile
