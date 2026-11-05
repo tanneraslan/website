@@ -1,7 +1,7 @@
 ---
 type: page
 title: Resume
-date: 2026-08-02
+date: 2026-11-05
 ---
 
 import ResumeRow from "../components/ResumeRow";
@@ -26,6 +26,9 @@ import ResumeRow from "../components/ResumeRow";
 
 ## Work Experience  
 
+<ResumeRow left="Roblox" right="Starting 2027" />  
+*Incoming Software Engineer – New Grad*  
+
 <ResumeRow left="Klaviyo – Boston, MA" right="June 2026 – August 2026" />  
 *Front-end Software Engineering Intern – Activation Team*  
 - Led and shipped **onboarding experiments** that targeted users based on industry vertical, coordinating PM, Analytics, Design & QA.  
@@ -33,6 +36,8 @@ import ResumeRow from "../components/ResumeRow";
 - Traced an under-enrolling A/B test to an unpopulated upstream field silently excluding **84%** of eligible traffic; re-sourced the field and restarted the experiment cleanly rather than report untrusted data, raising daily enrollment **7x**.  
 - Diagnosed and specified the fix for an **analytics-pipeline bug** (dbt/SQL, Snowflake) that miscounted auto-generated objects as user activations, eliminating a **~38% over-count** in core activation metrics and restoring trust in company-wide experiment data.  
 - Audited 16 non-responsive product surfaces and rebuilt the shared empty-state component around **CSS container queries**; **accepted into the company design system**, consolidating **~20 surfaces**.  
+- Built **Annotator**, a Chrome extension and backend that lets PMs and designers review a PR preview by pointing at an element and describing the change in plain English, using an **LLM** to turn each note into a **GitHub review comment** on the right line of the diff, so design feedback lands on the code instead of in Slack.  
+- Built a developer-only **Chrome extension**, released to engineers, that **overrides feature gates and experiments** on production without changing the app, installing an override adapter into the running SDK and tagging the exposures it generates so they stay out of experiment analysis.  
 - Moved to backend and infrastructure work for the **EU data-residency launch**, sweeping every team-owned surface against a US control, filing 9 defects and fixing two EU-only 500s.  
 
 <ResumeRow left="University of Michigan Field Robotics Group – Ann Arbor, MI" right="March 2026 – May 2026" />  
