@@ -69,7 +69,9 @@ import ResumeRow from "../components/ResumeRow";
 <ResumeRow left="MaizeMeals" href="https://www.maizemeals.com/" right="February 2026 – Present" extras="Vercel, React, Tailwind, Next.js, Python, Supabase, Sentry, PostHog" />  
 - Building a full-stack **progressive web app** for UofM students to view real-time dining menus, rate food items, and track nutrition.  
 - **Reverse-engineered** the university's undocumented dining API and built a Python scraper to synchronize data with **Supabase**.  
-- Engineered a "Smart Preferences Engine" and a "MaizeMacros" tracking module to dynamically filter and refine meal and dining hall recommendations based on user-defined dietary goals and restrictions.  
+- Built a **moderation workflow** for user-submitted dining photos, with an admin queue and approve and reject endpoints gating what reaches the public app.  
+- Built dietary and **macronutrient filtering** over the menu, including a histogram of macro distribution across a hall's items to make the filters legible.  
+- Added **scheduled server routes** for a daily dining digest and live hall capacity, keeping the app current without user-triggered fetches.  
 
 <ResumeRow left="WebGL Engine" href="https://github.com/tanneraslan/webgl-engine" links={[{ label: "View Live Demo", href: "https://tanneraslan.com/posts/engine-demo" }]} right="September 2025 – December 2025" extras="TypeScript, WebGL, GLSL" />  
 - Built a custom **ECS-based engine** in TypeScript that interacts directly with the WebGL 1.0, decoupling rendering data from logic.  
