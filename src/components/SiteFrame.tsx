@@ -2,6 +2,8 @@
 
 import { Disclosure } from '@lenso/ui/disclosure'
 import { EarthLighting } from './EarthLighting'
+import NextLink from 'next/link'
+import { TabBar } from '@lenso/ui/tab-bar'
 import { Switch } from '@lenso/ui/switch'
 import { ThemeScope } from '@lenso/ui'
 import { SiteLink } from './SiteLink'
@@ -13,7 +15,14 @@ import type { CloudSource } from '@/earth/clouds'
 import { SunSweep } from './SunSweep'
 import { Icon } from './Icon'
 
-const nav = [['/', 'Overview'], ['/resume', 'Résumé'], ['/posts', 'Blog'], ['/photos', 'Photos'], ['/music', 'Music'], ['/earth-lab', 'Earth lab']] as const
+const nav = [
+  ['/', 'Overview', 'home'], ['/resume', 'Résumé', 'briefcase'], ['/posts', 'Blog', 'book'],
+  ['/photos', 'Photos', 'photos'], ['/music', 'Music', 'music'], ['/earth-lab', 'Earth lab', 'globe'],
+] as const
+
+function isCurrentSection(path: string, href: string) {
+  return path === href || (href !== '/' && path.startsWith(href + '/')) || (href === '/posts' && path.startsWith('/tags/'))
+}
 type SceneState = 'loading' | 'live' | 'poster'
 type ComparisonState = 'loading' | 'ready' | 'error'
 
@@ -149,11 +158,19 @@ export function SiteFrame({ children }: { children: ReactNode }) {
     <a className="skip-link" href="#content">Skip to content</a>
     <header className="masthead">
       <SiteLink href="/" aria-label="Tanner Aslan home" data-kind="brand"><Mark/><span>Tanner Aslan</span></SiteLink>
-      <nav aria-label="Main navigation">{nav.map(([href, text]) => {
-        const active = path === href || (href !== '/' && path.startsWith(href + '/')) || (href === '/posts' && path.startsWith('/tags/'))
-        return <SiteLink key={href} href={href} aria-current={active ? 'page' : undefined}>{text}</SiteLink>
-      })}</nav>
+      <nav aria-label="Main navigation">{nav.map(([href, text]) =>
+        <SiteLink key={href} href={href} aria-current={isCurrentSection(path, href) ? 'page' : undefined}>{text}</SiteLink>
+      )}</nav>
     </header>
+    <div className="mobile-dock">
+      <TabBar aria-label="Main navigation" layout="phone">
+        <TabBar.Group>{nav.map(([href, text, icon]) =>
+          <TabBar.Link key={href} href={href} render={<NextLink href={href} />} isCurrent={isCurrentSection(path, href)} icon={<Icon name={icon} />}>
+            {text}
+          </TabBar.Link>
+        )}</TabBar.Group>
+      </TabBar>
+    </div>
     <main id="content" className="composition">
       <div className="page-copy">{children}</div>
       {hasEarth && <section className="observatory" aria-label={isLab ? 'City light comparison' : 'Earth viewer'}>

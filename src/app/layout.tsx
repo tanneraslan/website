@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: { type: 'website', siteName: 'Tanner Aslan', description, images: ['/earth/social.jpg'] },
   twitter: { card: 'summary_large_image', images: ['/earth/social.jpg'] },
 }
-export const viewport: Viewport = { themeColor: '#030507', colorScheme: 'dark' }
+export const viewport: Viewport = { themeColor: '#030507', colorScheme: 'dark', viewportFit: 'cover' }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="en" >

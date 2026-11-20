@@ -1,4 +1,10 @@
 const paths = {
+  home: <path d="m3 10 9-7 9 7v10h-6v-7H9v7H3z"/>,
+  briefcase: <><rect x="2.5" y="7" width="19" height="13" rx="3"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12c5 3 13 3 18 0"/></>,
+  book: <><path d="M12 6c-3-2-7-2-10-1v14c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 1Zm0 0v14"/></>,
+  photos: <><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8" cy="9" r="1.5"/><path d="m4 18 5-5 3 3 4-6 5 7"/></>,
+  music: <><path d="M9 17V6l11-3v12M9 9l11-3"/><ellipse cx="6" cy="18" rx="3" ry="2.5"/><ellipse cx="17" cy="16" rx="3" ry="2.5"/></>,
+  globe: <><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4.2" ry="9"/><path d="M3 12h18"/></>,
   arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
   external: <path d="M6 18 18 6M7 6h11v11" />,
   expand: <path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5" />,
