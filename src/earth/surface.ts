@@ -1,4 +1,5 @@
 import { Geodetic } from '@takram/three-geospatial'
+import { cityTwilightGLSL } from './city-points'
 import {
   BufferGeometry, Float32BufferAttribute, MathUtils, Points, ShaderMaterial,
   SphereGeometry, Vector3
@@ -24,39 +25,39 @@ export function createSurface() {
   return new ShaderMaterial({
     uniforms: {
       day: { value: null }, night: { value: null }, relief: { value: null },
-      detailDay: { value: null }, detailRelief: { value: null },
-      detailMix: { value: 0 }, sunDirection: { value: new Vector3() }
+      dayCube: { value: null }, cubeMix: { value: 0 },
+      textureCores: { value: 1 }, sunDirection: { value: new Vector3() }
     },
     vertexShader: `
-      varying vec2 geoUV;
       varying vec3 surfacePosition;
       void main() {
-        geoUV = uv;
         surfacePosition = position;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
-      uniform sampler2D day, night, relief, detailDay, detailRelief;
-      uniform float detailMix;
+      uniform sampler2D day, night, relief;
+      uniform samplerCube dayCube;
+      uniform float cubeMix, textureCores;
       uniform vec3 sunDirection;
-      varying vec2 geoUV;
       varying vec3 surfacePosition;
+      ${cityTwilightGLSL}
       void main() {
-        vec2 lonLat = (geoUV - 0.5) * vec2(360.0, 180.0);
-        vec2 regionUV = (lonLat - vec2(-140.0, 15.0)) / vec2(90.0, 55.0);
-        vec2 edge = min(regionUV, 1.0 - regionUV);
-        float detail = detailMix * smoothstep(0.0, 0.035, min(edge.x, edge.y));
-        vec3 color = texture2D(day, geoUV).rgb;
-        vec3 material = texture2D(relief, geoUV).rgb;
-        if (detail > 0.0) {
-          color = mix(color, texture2D(detailDay, regionUV).rgb, detail);
-          material = mix(material, texture2D(detailRelief, regionUV).rgb, detail);
-        }
-
-        vec2 angles = radians(lonLat);
-        vec3 normal = vec3(cos(angles.y)*cos(angles.x), cos(angles.y)*sin(angles.x), sin(angles.y));
-        vec3 east = vec3(-sin(angles.x), cos(angles.x), 0.0);
+        // Geodetic normal = normalized position divided by squared ellipsoid radii.
+        vec3 normal = normalize(surfacePosition * vec3(1.0, 1.0, 1.0067394967));
+        float cosLat = max(length(normal.xy), 0.00001);
+        vec3 east = vec3(-normal.y, normal.x, 0.0) / cosLat;
         vec3 north = cross(normal, east);
+        vec2 geoUV = vec2(atan(normal.y, normal.x) / 6.2831853, asin(clamp(normal.z, -1.0, 1.0)) / 3.14159265) + 0.5;
+
+        // Differentiate the continuous direction, so the dateline cannot select
+        // a globe-wide mip. Longitude covers less ground towards either pole.
+        vec3 dx = dFdx(normal), dy = dFdy(normal);
+        vec2 scales = vec2(6.2831853 * cosLat, 3.14159265);
+        vec2 uvDx = vec2(dot(dx, east), dot(dx, north)) / scales;
+        vec2 uvDy = vec2(dot(dy, east), dot(dy, north)) / scales;
+        vec3 color = textureGrad(day, geoUV, uvDx, uvDy).rgb;
+        if (cubeMix > 0.0) color = mix(color, texture(dayCube, normal).rgb, cubeMix);
+        vec3 material = textureGrad(relief, geoUV, uvDx, uvDy).rgb;
         vec2 slope = (2.0 * material.rg - 1.0) * (1.0 - material.b);
         vec3 terrainNormal = normalize(east * slope.x + north * slope.y +
           normal * sqrt(max(0.001, 1.0 - dot(slope, slope))));
@@ -73,16 +74,16 @@ export function createSurface() {
 
         // The coarse mip carries the light spilled onto the ground. The sharp
         // channel preserves distinct neighborhoods and the cores of large cities.
-        float lights = texture2D(night, geoUV).r;
-        float spill = texture2D(night, geoUV, 3.0).r;
+        float lights = textureGrad(night, geoUV, uvDx, uvDy).r;
+        float spill = textureGrad(night, geoUV, uvDx * 8.0, uvDy * 8.0).r;
         float localDusk = 0.024 * sin(17.0 * normal.x + 8.0 * normal.z)
           * cos(23.0 * normal.y - 5.0 * normal.z);
-        float darkness = 1.0 - smoothstep(-0.18, 0.02, solarElevation + localDusk);
+        float darkness = cityDarkness(solarElevation + localDusk);
         float core = smoothstep(0.5, 0.98, lights);
         vec3 lampColor = mix(vec3(1.0, 0.52, 0.17), vec3(1.25, 1.03, 0.75), core);
         float groundValue = dot(color, vec3(0.2126, 0.7152, 0.0722));
         float groundGlow = spill * (0.045 + 0.12 * sqrt(groundValue)) * (1.0 - material.b);
-        radiance += darkness * (1.35 * lights * lampColor + groundGlow * vec3(1.0, 0.37, 0.10));
+        radiance += darkness * (textureCores * 1.35 * lights * lampColor + groundGlow * vec3(1.0, 0.37, 0.10));
         gl_FragColor = vec4(radiance, 1.0);
       }`
   })

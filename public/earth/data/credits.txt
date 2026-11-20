@@ -10,6 +10,8 @@ https://doi.org/10.25921/fd45-gt74
 Ocean coverage: Natural Earth, 1:50m Ocean, version 5.1.2. Public domain.
 https://www.naturalearthdata.com/downloads/50m-physical-vectors/50m-ocean/
 
-All maps are equirectangular, north up, east right, with the global seam at 180 degrees. Global day and relief are 1024 x 512. Global night is 2048 x 1024. The 1152 x 704 North America patch covers 140 W to 50 W, 15 N to 70 N. Relief red and green encode east and north components of a tangent-space unit normal at sixfold vertical exaggeration (byte / 127.5 - 1). Blue stores ocean coverage. Day is sRGB; night and relief are sampled as data.
+The base maps are equirectangular, north up, east right, with the global seam at 180 degrees. Global base day and relief are 1024 x 512. Global base night is 2048 x 1024. The optional 4096 x 2048 detail tiers derive from ETOPO elevation and NASA's 3 km (13500 x 6750) night-light composite. Day refinement comprises six 2048 x 2048 cube faces, or six 1024 x 1024 mobile faces, projected from the 2 km (21600 x 10800) Blue Marble map. Face names follow OpenGL +X, -X, +Y, -Y, +Z, -Z with no vertical flip. In Earth-fixed axes, +X is the equator at Greenwich, +Y is the equator at 90 E, and +Z is the North Pole. Relief red and green encode east and north components of a tangent-space unit normal at sixfold vertical exaggeration (byte / 127.5 - 1). Blue stores ocean coverage. Day is sRGB; night and relief are sampled as data.
 
-To regenerate these derivatives, see scripts/bake-earth.py in the source repository.
+Instanced lamps: Sebastian Lague, Geographical Adventures. Original placements, intensities, and per-lamp dusk variation are packed in city-points.bin. See city-points-license.txt for the source and license.
+
+To regenerate the imagery derivatives, see scripts/bake-earth.py in the source repository.

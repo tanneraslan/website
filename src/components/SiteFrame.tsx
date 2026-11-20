@@ -3,11 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import type { EarthPose, createEarth } from '@/earth'
+import type { EarthPose, EarthController } from '@/earth'
+import { SunSweep } from './SunSweep'
 import { Icon } from './Icon'
 
 const nav = [['/', 'Overview'], ['/resume', 'Résumé'], ['/earth-lab', 'Earth lab']] as const
-type EarthController = Awaited<ReturnType<typeof createEarth>>
+type SceneState = 'loading' | 'live' | 'poster'
+type ComparisonState = 'loading' | 'ready' | 'error'
 
 function Mark() {
   return <svg className="mark" aria-hidden="true" viewBox="0 0 44 44" fill="none">
@@ -26,16 +28,23 @@ function Stars() {
   )}</div>
 }
 
-function Globe({ pose, offset, glass, onState }: { pose: EarthPose, offset: number, glass: RefObject<HTMLDivElement | null>, onState: (state: 'loading'|'live'|'poster') => void }) {
+function Globe({ pose, compare, glass, scene, onState, onComparisonState }: {
+  pose: EarthPose
+  compare: boolean
+  glass: RefObject<HTMLDivElement | null>
+  scene: RefObject<EarthController | null>
+  onState: (state: SceneState) => void
+  onComparisonState: (state: ComparisonState) => void
+}) {
   const surface = useRef<HTMLDivElement>(null)
-  const scene = useRef<EarthController | null>(null)
-  const latest = useRef({ pose, offset })
+  const latest = useRef({ pose, compare })
   const [live, setLive] = useState(false)
+  const [pointsReady, setPointsReady] = useState(false)
   useEffect(() => {
-    latest.current = { pose, offset }
+    latest.current = { pose, compare }
     scene.current?.setPose(pose)
-    scene.current?.setSunOffset(offset)
-  }, [pose, offset])
+    scene.current?.setCompare(compare)
+  }, [pose, compare, scene])
   useEffect(() => {
     const parent = surface.current
     if (!parent) return
@@ -55,11 +64,16 @@ function Globe({ pose, offset, glass, onState }: { pose: EarthPose, offset: numb
           glassBounds: () => glass.current?.getBoundingClientRect() ?? null,
           onReady: () => { if (!stopped) { setLive(true); onState('live') } },
           onError: fail,
+          onComparisonState: status => {
+            if (stopped) return
+            setPointsReady(status === 'ready')
+            onComparisonState(status)
+          },
         })
         if (stopped) { controller.dispose(); return }
         scene.current = controller
         controller.setPose(latest.current.pose)
-        controller.setSunOffset(latest.current.offset)
+        controller.setCompare(latest.current.compare)
       } catch { fail() }
     }
     const frame = requestAnimationFrame(() => { void start() })
@@ -70,11 +84,14 @@ function Globe({ pose, offset, glass, onState }: { pose: EarthPose, offset: numb
       controller?.dispose()
       canvas.remove()
     }
-  }, [glass, onState])
+  }, [glass, scene, onState, onComparisonState])
   // Leave the opening poster underneath until all shaders and base maps have rendered.
-  return <div className="globe" role="img" aria-label={pose === 'crescent' ? 'Earth at night, with city lights and a sunlit crescent' : 'Side-lit Earth centered on North America'}>
+  const description = compare ? 'Two Earths under the same sun, with satellite city lights on the left and instanced lights on the right'
+    : pose === 'crescent' ? 'Earth at night, with city lights and a sunlit crescent' : 'Side-lit Earth centered on North America'
+  return <div className="globe" role="img" aria-label={description}>
     {!live && <img className="planet-poster" src={`/earth/${pose}.webp`} alt="" fetchPriority="high" width="1024" height="1024" />}
     <div className="canvas-host" ref={surface} style={{ opacity: live ? 1 : 0 }} />
+    {compare && (!live || !pointsReady) && <img className="planet-poster points-poster" src={`/earth/points-${pose}.webp`} alt="" width="1024" height="1024" />}
   </div>
 }
 
@@ -86,6 +103,7 @@ function Credits() {
       <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/">Day surface · NASA Blue Marble <Icon name="external"/></a>
       <a href="https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/">City lights · NASA Black Marble <Icon name="external"/></a>
       <a href="https://www.ncei.noaa.gov/products/etopo-global-relief-model">Elevation · NOAA ETOPO <Icon name="external"/></a>
+      <a href="https://github.com/SebLague/Geographical-Adventures">City points · Sebastian Lague <Icon name="external"/></a>
       <a href="/earth/data/credits.txt">Full source credits <Icon name="arrow"/></a>
     </div>
   </details>
@@ -94,13 +112,13 @@ function Credits() {
 export function SiteFrame({ children }: { children: ReactNode }) {
   const path = usePathname()
   const glass = useRef<HTMLDivElement>(null)
+  const scene = useRef<EarthController | null>(null)
   const isResume = path === '/resume'
   const isLab = path === '/earth-lab'
   const [selection, setSelection] = useState<{ path: string, pose: EarthPose } | null>(null)
-  const [adjustment, setAdjustment] = useState<{ path: string, degrees: number } | null>(null)
-  const [state, setState] = useState<'loading'|'live'|'poster'>('loading')
+  const [state, setState] = useState<SceneState>('loading')
+  const [comparison, setComparison] = useState<ComparisonState>('loading')
   const pose = selection?.path === path ? selection.pose : isResume ? 'experience' : 'crescent'
-  const offset = adjustment?.path === path ? adjustment.degrees : 0
   if (!nav.some(([href]) => href === path)) return <main>{children}</main>
   return <div className={`site ${isResume ? 'resume' : isLab ? 'lab' : 'home'}`}>
     <Stars/>
@@ -113,15 +131,21 @@ export function SiteFrame({ children }: { children: ReactNode }) {
     </header>
     <main id="content" className="composition">
       <div className="page-copy">{children}</div>
-      <section className="observatory" aria-label="Earth viewer">
-        <Globe pose={pose} offset={offset} glass={glass} onState={setState}/>
+      <section className="observatory" aria-label={isLab ? 'City light comparison' : 'Earth viewer'}>
+        <div className="earth-frame">
+          <Globe pose={pose} compare={isLab} glass={glass} scene={scene} onState={setState} onComparisonState={setComparison}/>
+        </div>
+        {isLab && <div className="view-labels"><span>Satellite texture</span><span>Instanced lights</span></div>}
         <div className="viewer-controls">
           <div ref={glass} className="glass-pod" data-live={state === 'live'} role="group" aria-label="Earth lighting">
             <button type="button" aria-pressed={pose === 'crescent'} onClick={() => setSelection({ path, pose: 'crescent' })}><Icon name="moon"/>Crescent</button>
             <button type="button" aria-pressed={pose === 'experience'} onClick={() => setSelection({ path, pose: 'experience' })}><Icon name="sun"/>Daylight</button>
           </div>
-          {isLab && <label className="sun-control"><span>Sun angle</span><input type="range" min="-30" max="30" step="1" value={offset} disabled={state !== 'live'} onChange={e => setAdjustment({ path, degrees: Number(e.target.value) })}/><output>{offset}°</output></label>}
-          {isLab && state === 'poster' && <small role="status">Still imagery · live lighting unavailable</small>}
+          {isLab && <SunSweep key={pose} scene={scene} enabled={state === 'live' && comparison === 'ready'}/>}
+          {isLab && (state === 'poster' || comparison === 'error') && <small role="status">
+            {state === 'poster' ? 'Still imagery · live lighting unavailable' : 'Point data unavailable · showing a still comparison'}
+          </small>}
+
         </div>
       </section>
     </main>

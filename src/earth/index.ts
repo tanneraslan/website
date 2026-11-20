@@ -4,22 +4,26 @@ import {
   EffectComposer, EffectPass, RenderPass, ToneMappingEffect, ToneMappingMode
 } from 'postprocessing'
 import {
-  HalfFloatType, MathUtils, Mesh, PerspectiveCamera, RepeatWrapping, Scene,
+  CubeTextureLoader, HalfFloatType, LinearFilter, LinearMipmapLinearFilter,
+  MathUtils, Mesh, PerspectiveCamera, RepeatWrapping, Scene,
   SRGBColorSpace, Texture, TextureLoader, Vector3, WebGLRenderer
 } from 'three'
 import { createComposite } from './composite'
 import { createEllipsoid, createPins, createSurface } from './surface'
+import { loadCityPoints } from './city-points'
 
 export type EarthPose = 'crescent' | 'experience'
 export interface EarthOptions {
   initialPose: EarthPose
   onReady: () => void
   onError: () => void
+  onComparisonState?: (state: 'loading' | 'ready' | 'error') => void
   glassBounds?: () => DOMRect | null
 }
 export interface EarthController {
   setPose: (pose: EarthPose) => void
   setSunOffset: (degrees: number) => void
+  setCompare: (enabled: boolean) => void
   dispose: () => void
 }
 
@@ -34,6 +38,8 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     renderer.dispose()
     throw new Error('The atmosphere needs floating-point render targets.')
   }
+  const gl = renderer.getContext()
+  const maxViewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array
   renderer.setClearColor(0, 0)
   renderer.debug.onShaderError = (gl, program, vertex, fragment) => {
     throw new Error([gl.getProgramInfoLog(program), gl.getShaderInfoLog(vertex), gl.getShaderInfoLog(fragment)].join('\n'))
@@ -56,6 +62,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
 
   const textures = new Set<Texture>()
   const textureLoader = new TextureLoader()
+  const anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy())
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
   const east = new Vector3()
   const north = new Vector3()
@@ -70,8 +77,16 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   let targetProgress = progress
   let transitionStart = 0
   let sunOffset = 0
-  let detailStarted = false
-  let detailReadyAt = Infinity
+  let compare = false
+  let points: Awaited<ReturnType<typeof loadCityPoints>> | null = null
+  let pointRequest: AbortController | null = null
+  let comparisonReady = false
+  let paneWidth = 0
+  let cubeRequested = 0
+  let cubeLoaded = 0
+  let cubeReadyAt = Infinity
+  let highMapsRequested = false
+  let refineTimer = 0
   let frame = 0
   let ready = false
   let disposed = false
@@ -82,6 +97,8 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     if (disposed) return
     disposed = true
     cancelAnimationFrame(frame)
+    window.clearTimeout(refineTimer)
+    releasePoints()
     resize.disconnect()
     document.removeEventListener('visibilitychange', invalidate)
     document.removeEventListener('scroll', invalidate, true)
@@ -109,19 +126,26 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       const w = canvas.clientWidth
       const h = canvas.clientHeight
       if (!w || !h) return
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.75, 1500 / Math.max(w, h))
-      if (w !== width || h !== height || dpr !== renderer.getPixelRatio()) {
+      const pane = compare ? w * 0.5 : w
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.75, 1500 / Math.max(pane, h),
+        maxViewport[0] / w, maxViewport[1] / h)
+      if (w !== width || h !== height || pane !== paneWidth || dpr !== renderer.getPixelRatio()) {
         width = w
         height = h
+        paneWidth = pane
         renderer.setPixelRatio(dpr)
-        composer.setSize(w, h, false)
-        camera.aspect = w / h
+        // All offscreen passes render a complete pane. Only the final pass is
+        // scissored into the shared wide default framebuffer.
+        composer.setSize(pane, h, false)
+        renderer.setSize(w, h, false)
+        camera.aspect = pane / h
         // tan(angular radius) projected onto a centered perspective plane.
         const tangent = radius / Math.sqrt(cameraDistance ** 2 - radius ** 2)
         camera.fov = 2 * MathUtils.radToDeg(Math.atan(tangent / (0.85 * Math.min(1, camera.aspect))))
         camera.updateProjectionMatrix()
         pins.material.uniforms.pixelRatio.value = dpr
-        composite.viewport.value.set(w, h)
+        composite.viewport.value.set(pane, h)
+        scheduleRefinement()
       }
       const t = reducedMotion.matches ? 1 : MathUtils.clamp((time - transitionStart) / orbitTime, 0, 1)
       progress = MathUtils.lerp(startProgress, targetProgress, t * t * (3 - 2 * t))
@@ -138,24 +162,38 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       atmosphere.sunDirection.copy(east).multiplyScalar(sunLocal.x)
         .addScaledVector(north, sunLocal.y).addScaledVector(towardCamera, sunLocal.z)
       surface.uniforms.sunDirection.value.copy(atmosphere.sunDirection)
-      const detailFade = reducedMotion.matches && detailReadyAt !== Infinity
-        ? 1 : MathUtils.clamp((time - detailReadyAt) / 400, 0, 1)
-      surface.uniforms.detailMix.value = progress * detailFade
+      points?.updateView(camera.position, atmosphere.sunDirection)
+      surface.uniforms.cubeMix.value = reducedMotion.matches && cubeReadyAt !== Infinity
+        ? 1 : MathUtils.clamp((time - cubeReadyAt) / 300, 0, 1)
       pins.visible = progress > 0.48
       pins.material.uniforms.strength.value = MathUtils.smoothstep(progress, 0.48, 0.88)
       const glass = options.glassBounds?.()
-      if (glass) {
-        const bounds = canvas.getBoundingClientRect()
-        composite.lens.value.set(glass.left - bounds.left, bounds.bottom - glass.bottom, glass.width, glass.height)
-      } else {
-        composite.lens.value.set(0, 0, 0, 0)
+      const bounds = glass ? canvas.getBoundingClientRect() : null
+      renderer.setScissorTest(compare)
+      const paneCount = compare ? 2 : 1
+      for (let i = 0; i < paneCount; i++) {
+        // Integer drawing-buffer edges keep adjacent panes gap-free at fractional DPR.
+        const left = Math.floor(canvas.width * i / paneCount)
+        const right = Math.floor(canvas.width * (i + 1) / paneCount)
+        const x = left / dpr
+        const screenWidth = (right - left + 0.0001) / dpr
+        renderer.setViewport(x + 0.0001 / dpr, 0, screenWidth, h)
+        renderer.setScissor(x + 0.0001 / dpr, 0, screenWidth, h)
+        if (glass && bounds) composite.lens.value.set(glass.left - bounds.left - x, bounds.bottom - glass.bottom, glass.width, glass.height)
+        else composite.lens.value.set(0, 0, 0, 0)
+        surface.uniforms.textureCores.value = i === 0 ? 1 : 0
+        if (points) points.visible = i === 1
+        composer.render()
       }
-      composer.render()
+      if (compare && points && !comparisonReady) {
+        comparisonReady = true
+        options.onComparisonState?.('ready')
+      }
       if (!canvas.dataset.earthReady) {
         canvas.dataset.earthReady = 'true'
         options.onReady()
       }
-      if ((startProgress !== targetProgress && t < 1) || (detailReadyAt !== Infinity && detailFade < 1)) invalidate()
+      if ((startProgress !== targetProgress && t < 1) || (cubeReadyAt !== Infinity && surface.uniforms.cubeMix.value < 1)) invalidate()
     } catch (error) {
       console.error('Earth rendering failed.', error)
       fail()
@@ -173,29 +211,105 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   document.addEventListener('visibilitychange', invalidate)
   if (options.glassBounds) document.addEventListener('scroll', invalidate, { passive: true, capture: true })
 
-  function loadMap(name: string, color = false, global = true): Promise<Texture> {
+  function configureTexture(texture: Texture, color: boolean) {
+    texture.minFilter = LinearMipmapLinearFilter
+    texture.magFilter = LinearFilter
+    texture.generateMipmaps = true
+    texture.anisotropy = anisotropy
+    if (color) texture.colorSpace = SRGBColorSpace
+    textures.add(texture)
+  }
+
+  function loadMap(name: string, color = false): Promise<Texture> {
     return new Promise((resolve, reject) => {
       const texture = textureLoader.load('/earth/data/' + name + '.webp', resolve, undefined, reject)
-      if (global) texture.wrapS = RepeatWrapping
-      if (color) texture.colorSpace = SRGBColorSpace
-      textures.add(texture)
+      texture.wrapS = RepeatWrapping
+      configureTexture(texture, color)
     })
   }
 
-  function refine() {
-    if (detailStarted || !ready || pose !== 'experience') return
-    detailStarted = true
-    Promise.all([loadMap('north-america-day', true, false), loadMap('north-america-relief', false, false)])
-      .then(([day, relief]) => {
-        if (disposed) return
-        surface.uniforms.detailDay.value = day
-        surface.uniforms.detailRelief.value = relief
-        detailReadyAt = performance.now()
-        invalidate()
-      }).catch(() => {
-        // The global textures cover the same geography if a detail request fails.
-        detailStarted = false
+  function replaceTexture(slot: string, texture: Texture) {
+    const previous = surface.uniforms[slot].value as Texture | null
+    surface.uniforms[slot].value = texture
+    if (previous) {
+      previous.dispose()
+      textures.delete(previous)
+    }
+    invalidate()
+  }
+
+  function refineTextures() {
+    if (disposed || !ready) return
+    const diameter = 0.85 * Math.min(paneWidth, height) * renderer.getPixelRatio()
+    const tier = diameter >= 690 ? 2048 : 1024
+    if (tier > cubeRequested && renderer.capabilities.maxCubemapSize >= tier) {
+      cubeRequested = tier
+      const stem = tier === 2048 ? 'day-' : 'day-1k-'
+      const urls = ['px', 'nx', 'py', 'ny', 'pz', 'nz'].map(face => '/earth/data/' + stem + face + '.webp')
+      const cube = new CubeTextureLoader().load(urls, texture => {
+        // A resize may have requested a sharper set in the meantime.
+        if (disposed || tier < cubeLoaded) {
+          texture.dispose()
+          textures.delete(texture)
+          return
+        }
+        cubeLoaded = tier
+        if (cubeReadyAt === Infinity) cubeReadyAt = performance.now()
+        replaceTexture('dayCube', texture)
+      }, undefined, () => {
+        cube.dispose()
+        textures.delete(cube)
       })
+      cube.flipY = false
+      configureTexture(cube, true)
+    }
+    if (diameter >= 690 && !highMapsRequested && renderer.capabilities.maxTextureSize >= 4096) {
+      highMapsRequested = true
+      for (const name of ['night', 'relief']) {
+        loadMap(name + '-detail').then(texture => {
+          if (!disposed) replaceTexture(name, texture)
+        }).catch(() => { /* Keep the base map if this optional refinement fails. */ })
+      }
+    }
+  }
+
+  function scheduleRefinement() {
+    window.clearTimeout(refineTimer)
+    // Give the browser a paint with the base textures before optional requests.
+    refineTimer = window.setTimeout(refineTextures, 120)
+  }
+
+  function releasePoints() {
+    pointRequest?.abort()
+    pointRequest = null
+    if (points) {
+      scene.remove(points)
+      points.geometry.dispose()
+      points.material.dispose()
+      points = null
+    }
+    comparisonReady = false
+  }
+
+  function requestPoints() {
+    if (pointRequest || !compare || !ready) return
+    const request = new AbortController()
+    pointRequest = request
+    options.onComparisonState?.('loading')
+    loadCityPoints(request.signal).then(mesh => {
+      if (disposed || request.signal.aborted) {
+        mesh.geometry.dispose()
+        mesh.material.dispose()
+        return
+      }
+      points = mesh
+      scene.add(mesh)
+      invalidate()
+    }).catch(error => {
+      if (request.signal.aborted || disposed) return
+      console.warn('The instanced city lights could not be loaded.', error)
+      options.onComparisonState?.('error')
+    })
   }
 
   const atmosphereTextures = new Promise<void>((resolve, reject) => {
@@ -207,12 +321,12 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   Promise.all([loadMap('day', true), loadMap('night'), loadMap('relief'), atmosphereTextures])
     .then(([day, night, relief]) => {
       if (disposed) return
-      surface.uniforms.day.value = surface.uniforms.detailDay.value = day
-      surface.uniforms.relief.value = surface.uniforms.detailRelief.value = relief
+      surface.uniforms.day.value = day
+      surface.uniforms.relief.value = relief
       surface.uniforms.night.value = night
       ready = true
       invalidate()
-      refine()
+      requestPoints()
     }).catch(error => {
       if (!disposed) console.warn('Earth textures could not be loaded.', error)
       fail()
@@ -228,11 +342,17 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
         transitionStart = performance.now()
         invalidate()
       }
-      refine()
+    },
+    setCompare(enabled) {
+      if (disposed || enabled === compare) return
+      compare = enabled
+      if (enabled) requestPoints()
+      else releasePoints()
+      invalidate()
     },
     setSunOffset(degrees) {
       if (!Number.isFinite(degrees) || disposed) return
-      sunOffset = MathUtils.clamp(degrees, -30, 30)
+      sunOffset = MathUtils.clamp(degrees, -180, 180)
       invalidate()
     },
     dispose
