@@ -2,8 +2,7 @@ import { Geodetic } from '@takram/three-geospatial'
 import { nightLightingGLSL } from './night-lighting'
 import { cityTwilightGLSL } from './city-points'
 import {
-  BufferGeometry, Float32BufferAttribute, MathUtils, Points, ShaderMaterial,
-  SphereGeometry, Vector3
+  ShaderMaterial, SphereGeometry, Vector3
 } from 'three'
 
 // Geometry UVs, satellite imagery, markers and the atmosphere share WGS84 ECEF.
@@ -104,36 +103,4 @@ export function createSurface() {
         gl_FragColor = vec4(radiance, 1.0);
       }`
   })
-}
-
-const cities = [
-  [-71.0589, 42.3601], [-83.7430, 42.2808],
-  [-74.0060, 40.7128], [-123.1207, 49.2827]
-]
-
-export function createPins() {
-  const coordinates = cities.flatMap(([lon, lat]) =>
-    new Geodetic(MathUtils.degToRad(lon), MathUtils.degToRad(lat), 3000).toECEF().toArray()
-  )
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new Float32BufferAttribute(coordinates, 3))
-  return new Points(geometry, new ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    uniforms: { strength: { value: 0 }, pixelRatio: { value: 1 } },
-    vertexShader: `
-      uniform float pixelRatio;
-      void main() {
-        gl_PointSize = 9.0 * pixelRatio;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }`,
-    fragmentShader: `
-      uniform float strength;
-      void main() {
-        float radius = length(gl_PointCoord - 0.5) * 2.0;
-        float center = 1.0 - smoothstep(0.23, 0.42, radius);
-        float ring = smoothstep(0.55, 0.7, radius) * (1.0 - smoothstep(0.75, 1.0, radius));
-        gl_FragColor = vec4(vec3(0.70, 1.6, 1.9), strength * max(center, 0.8*ring));
-      }`
-  }))
 }

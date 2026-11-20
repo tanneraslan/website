@@ -1,11 +1,12 @@
 import { nightLightingGLSL } from './night-lighting'
 import {
-  LinearMipmapLinearFilter, Mesh, RepeatWrapping, ShaderMaterial, TextureLoader, Vector3,
+  DataTexture, LinearMipmapLinearFilter, Mesh, RedFormat, RepeatWrapping, ShaderMaterial, TextureLoader, Vector3,
   type BufferGeometry, type Texture
 } from 'three'
 
 export const cloudCoverageGLSL = `
-  uniform sampler2D cloudMap;
+  uniform sampler2D cloudMap, previousCloudMap;
+  uniform float cloudBlend;
   vec2 cloudUV(vec3 normal) {
     return vec2(atan(normal.y, normal.x) / 6.2831853, asin(clamp(normal.z, -1.0, 1.0)) / 3.14159265) + 0.5;
   }
@@ -21,8 +22,11 @@ export type CloudSource = 'loading' | 'live' | 'snapshot' | 'unavailable'
 
 export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, nightMap: { value: Texture | null }, anisotropy: number,
   invalidate: () => void, onSource: (source: CloudSource) => void) {
+  const clearSky = new DataTexture(new Uint8Array([0]), 1, 1, RedFormat)
+  clearSky.needsUpdate = true
   const uniforms = {
-    cloudMap: { value: null as Texture | null },
+    cloudMap: { value: clearSky as Texture }, previousCloudMap: { value: clearSky as Texture },
+    cloudBlend: { value: 1 },
     cloudStrength: { value: 0 },
     sunDirection: { value: sunDirection }, nightMap
   }
@@ -47,9 +51,14 @@ export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, ni
         vec3 north = cross(n, east);
         vec3 dx = dFdx(n), dy = dFdy(n);
         vec2 scale = vec2(6.2831853 * max(length(n.xy), 0.00001), 3.14159265);
-        float density = textureGrad(cloudMap, cloudUV(n),
-          vec2(dot(dx, east), dot(dx, north)) / scale,
-          vec2(dot(dy, east), dot(dy, north)) / scale).r;
+        vec2 uv = cloudUV(n);
+        vec2 uvDx = vec2(dot(dx, east), dot(dx, north)) / scale;
+        vec2 uvDy = vec2(dot(dy, east), dot(dy, north)) / scale;
+        float density = textureGrad(cloudMap, uv, uvDx, uvDy).r;
+        if (cloudBlend < 1.0) {
+          float previous = textureGrad(previousCloudMap, uv, uvDx, uvDy).r;
+          density = mix(previous, density, cloudBlend);
+        }
         float sun = dot(n, sunDirection);
         float daylight = smoothstep(-0.06, 0.16, sun);
         vec3 tint = mix(vec3(1.0, 0.60, 0.35), vec3(1.0, 0.98, 0.95), daylight);
@@ -77,33 +86,53 @@ export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, ni
   mesh.visible = false
   const loader = new TextureLoader()
   const interval = 3 * 60 * 60 * 1000
-  let enabled = true, disposed = false, pending = false, hasLive = false
+  let enabled = true, disposed = false, pending = false
+  let transitionStart = 0
   let lastAttempt = -Infinity
   let refreshTimer = 0
 
   function updateVisibility() {
-    mesh.visible = enabled && uniforms.cloudMap.value != null
+    mesh.visible = enabled && uniforms.cloudMap.value !== clearSky
     uniforms.cloudStrength.value = mesh.visible ? 1 : 0
     invalidate()
   }
 
   function install(texture: Texture, source: 'live' | 'snapshot') {
-    if (disposed || (source === 'snapshot' && hasLive)) { texture.dispose(); return }
+    if (disposed) { texture.dispose(); return }
     texture.wrapS = RepeatWrapping
     texture.minFilter = LinearMipmapLinearFilter
     texture.anisotropy = anisotropy
-    uniforms.cloudMap.value?.dispose()
+    uniforms.previousCloudMap.value = uniforms.cloudMap.value
     uniforms.cloudMap.value = texture
-    if (source === 'live') hasLive = true
+    uniforms.cloudBlend.value = source === 'snapshot' ? 1 : 0
+    transitionStart = performance.now()
     onSource(source)
     updateVisibility()
   }
 
+  async function loadSnapshot() {
+    try {
+      install(await loader.loadAsync('/earth/data/clouds-snapshot.webp'), 'snapshot')
+    } catch {
+      // The Earth still works when this optional local asset fails.
+      if (!disposed) onSource('unavailable')
+    }
+  }
+
+  function advance(time: number) {
+    if (uniforms.cloudBlend.value >= 1) return
+    const t = Math.max(0, Math.min(1, (time - transitionStart) / 750))
+    uniforms.cloudBlend.value = t * t * (3 - 2 * t)
+    if (t < 1) {
+      invalidate()
+    } else {
+      if (uniforms.previousCloudMap.value !== clearSky) uniforms.previousCloudMap.value.dispose()
+      uniforms.previousCloudMap.value = clearSky
+    }
+  }
+
   function refresh() {
     if (!enabled || pending || disposed || Date.now() - lastAttempt < interval) return
-    if (lastAttempt === -Infinity) {
-      loader.load('/earth/data/clouds-snapshot.webp', texture => install(texture, 'snapshot'), undefined, () => {})
-    }
     pending = true
     lastAttempt = Date.now()
     window.clearTimeout(refreshTimer)
@@ -113,17 +142,17 @@ export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, ni
       install(texture, 'live')
     }, undefined, () => {
       pending = false
-      if (!disposed) onSource(uniforms.cloudMap.value ? 'snapshot' : 'unavailable')
+      if (!disposed) onSource(uniforms.cloudMap.value !== clearSky ? 'snapshot' : 'unavailable')
     })
   }
 
   return {
-    mesh, uniforms, refresh,
+    mesh, uniforms, loadSnapshot, advance, refresh,
     setEnabled(value: boolean) { enabled = value; updateVisibility() },
     dispose() {
       disposed = true
       window.clearTimeout(refreshTimer)
-      uniforms.cloudMap.value?.dispose()
+      new Set([clearSky, uniforms.previousCloudMap.value, uniforms.cloudMap.value]).forEach(texture => texture.dispose())
       material.dispose()
     }
   }

@@ -1,0 +1,40 @@
+.archive-page {
+  width: min(100%, 56rem); margin-inline: auto; padding: clamp(2rem, 6vw, 5rem) clamp(1.25rem, 4vw, 3rem) 5rem;
+  min-width: 0; line-height: 1.6; font-size: 1.0625rem;
+}
+.archive-page h1 { font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.04; letter-spacing: -.055em; margin: .28em 0 .5em; text-wrap: balance; }
+.archive-page h2, .archive-page h3 { line-height: 1.2; letter-spacing: -.032em; margin: 1.7em 0 .55em; }
+.archive-page p { margin: 0 0 1em; line-height: 1.62; }
+.archive-page ul, .archive-page ol { padding-inline-start: 1.5rem; }
+.archive-page .article-heading { margin-bottom: 2.25rem; }
+.archive-page time, .archive-page figcaption, .archive-page .article-heading > p { color: var(--lenso-label-secondary); }
+.archive-page .article-tags { display: flex; flex-wrap: wrap; column-gap: .9rem; row-gap: .2rem; font-size: .875rem; }
+.archive-page :is(.post-list,.music-list) { list-style: none; padding: 0; margin: 1.75rem 0 2.5rem; }
+.archive-page :is(.post-list,.music-list) > li { border-bottom: 1px solid var(--lenso-separator); }
+.archive-page [data-archive="post-item"] { display: flex; align-items: center; gap: clamp(.9rem, 2.5vw, 1.6rem); padding: 1.3rem 0; color: inherit; text-decoration: none; font: inherit; white-space: normal; }
+.archive-page [data-archive="post-item"] img { width: clamp(5.5rem, 18vw, 11rem); aspect-ratio: 1.45; object-fit: cover; border-radius: .85rem; flex: none; }
+.archive-page [data-archive="post-item"] time, .archive-page [data-archive="music-item"] time { font-size: .875rem; }
+.archive-page [data-archive="post-item"] h2 { margin: .2rem 0 .35rem; font-size: clamp(1.2rem, 2.4vw, 1.6rem); }
+.archive-page [data-archive="post-item"] p { margin: 0; color: var(--lenso-label-secondary); font-size: 1rem; line-height: 1.45; }
+.archive-page [data-archive="music-item"] { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 0; padding: 1rem 0; color: inherit; text-decoration: none; white-space: normal; }
+.archive-page [data-archive="music-item"] strong { display: block; font-size: 1.125rem; }
+.archive-page [data-archive="music-item"] > span > span { display: block; color: var(--lenso-label-secondary); font-size: .9375rem; }
+.archive-page [data-archive="post-item"]:hover h2, .archive-page [data-archive="music-item"]:hover strong { text-decoration: underline; text-underline-offset: .14em; }
+.archive-page [data-archive="article-body"] :is(figure,img) { max-width: 100%; }
+.archive-page [data-archive="article-body"] figure { margin: 1.5rem 0; }
+.archive-page [data-archive="article-body"] img { display: block; margin: 1rem auto; height: auto; border-radius: .65rem; }
+.archive-page figcaption { font-size: .9rem; margin: .5rem 0 1.5rem; text-align: center; }
+.archive-page [data-archive="article-body"] blockquote { margin: 1.5rem 0; padding-left: 1rem; border-left: 2px solid var(--lenso-separator-opaque); }
+.archive-page [data-archive="article-body"] pre, .archive-page .katex-display { overflow-x: auto; max-width: 100%; }
+.archive-page [data-archive="article-body"] pre { padding: 1rem; border-radius: .7rem; background: var(--lenso-background-grouped-secondary); font-size: .875rem; }
+.archive-page [data-archive="article-body"] table { display: block; max-width: 100%; overflow: auto; border-collapse: collapse; }
+.archive-page [data-archive="article-body"] th, .archive-page [data-archive="article-body"] td { padding: .4rem .7rem; border-bottom: 1px solid var(--lenso-separator-opaque); }
+.archive-page :is([data-archive="audio-player"],[data-archive="demo-frame"],[data-archive="shader-example"]) { display: grid; gap: .85rem; padding: 1rem; margin: 1.6rem 0; min-width: 0; }
+.archive-page :is([data-archive="demo-frame"],[data-archive="shader-example"]) button { justify-self: start; }
+.archive-page [data-archive="demo-frame"] iframe, .archive-page audio { display: block; width: 100%; border: 0; }
+.archive-page [data-archive="shader-example"] canvas { display: block; width: min(100%, 32rem); aspect-ratio: 1; justify-self: center; }
+.archive-page .score object { display: block; width: 100%; height: min(75svh, 60rem); min-height: 20rem; margin-top: 1rem; border: 0; }
+@media (max-width: 540px) { .archive-page { padding-inline: 0; } .archive-page [data-archive="post-item"] { align-items: start; } .archive-page [data-archive="post-item"] p { font-size: .94rem; } }
+
+.archive-page .post-list .article-tags { margin: -.35rem 0 1.1rem; }
+.archive-page [data-archive="music-item"] small { display: block; margin-top: .25rem; color: var(--lenso-label-secondary); font-size: .875rem; }

@@ -17,6 +17,19 @@ export function createComposite() {
       return texture2D(inputBuffer, coord).rgb;
     }
 
+    // Gather transmitted light across the rounded glass. The staggered rings
+    // soften tiny city lights without creating an extra full-screen blur pass.
+    vec3 glassTransmission(vec2 uv) {
+      vec2 texel = 1.0 / viewportSize;
+      vec3 soft = texture2D(inputBuffer, uv).rgb * 0.20;
+      for (int i = 0; i < 6; ++i) {
+        float a = float(i) * 1.04719755;
+        soft += texture2D(inputBuffer, uv + 1.65 * texel * vec2(cos(a), sin(a))).rgb * 0.085;
+        soft += texture2D(inputBuffer, uv + 4.1 * texel * vec2(cos(a + 0.52359878), sin(a + 0.52359878))).rgb * (0.29 / 6.0);
+      }
+      return soft;
+    }
+
     void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
       vec2 pixel = uv * viewportSize;
       vec2 halfSize = lensRect.zw * 0.5;
@@ -26,13 +39,13 @@ export function createComposite() {
       float edge = radius - length(radial);
       vec2 bentUV = uv;
       vec3 reflected = vec3(0.0);
-      if (edge > 0.0 && edge < 10.0) {
+      if (edge > 0.0 && edge < 5.0) {
         vec2 outward = radial / max(length(radial), 0.001);
-        bentUV -= outward * sin(edge * 0.314159) * 6.0 / viewportSize;
+        bentUV -= outward * sin(edge * 0.62831853) * 3.1 / viewportSize;
 
         // Pull a fan of nearby scene radiance onto the curved lip. Keep some
         // peak energy so a tiny bright lamp survives an otherwise dark kernel.
-        float rim = 1.0 - smoothstep(1.0, 4.5, edge);
+        float rim = 1.0 - smoothstep(0.55, 1.9, edge);
         if (rim > 0.0) {
           vec2 tangent = vec2(-outward.y, outward.x);
           vec2 lip = pixel + edge * outward;
@@ -46,10 +59,11 @@ export function createComposite() {
               peak = max(peak, sampleColor);
             }
           }
-          reflected = rim * (total * (0.85 / 15.0) + peak * 0.48);
+          reflected = rim * (total * (0.85 / 15.0) + peak * 0.55);
         }
       }
-      vec3 color = texture2D(inputBuffer, bentUV).rgb + reflected;
+      vec3 color = inputColor.rgb;
+      if (edge > 0.0) color = glassTransmission(bentUV) + reflected;
       float disk = length((bentUV - 0.5) * viewportSize) / (0.425 * min(viewportSize.x, viewportSize.y));
       float luminance = max(color.r, max(color.g, color.b));
       float alpha = max(1.0 - smoothstep(0.99, 1.0, disk), smoothstep(0.0, 0.045, luminance));

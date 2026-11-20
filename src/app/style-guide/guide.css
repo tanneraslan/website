@@ -1,0 +1,15 @@
+.guide { max-width: 760px; margin-inline: auto; padding: clamp(40px,6vw,84px) 0 }
+.guide section { padding-block: 28px; border-bottom: 1px solid var(--line) }
+.guide h2 { margin: 0 0 12px }
+.guide section p { color: #bdc0c7; max-width: 65ch }
+.type-sample { display: grid; gap: 4px; padding: 20px 0 }
+.type-sample strong { font-size: 34px; letter-spacing: -.045em }
+.type-sample small { color: var(--muted) }
+.swatches { display: flex; gap: 12px; flex-wrap: wrap }
+.swatches span { display: grid; align-items: end; min-width: 65px; gap: 7px; font-size: 14px }
+.swatches span::before { content: ''; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--page) }
+.swatches [data-swatch=Surface]::before { background: var(--surface) }
+.swatches [data-swatch=Text]::before { background: var(--ink) }
+.swatches [data-swatch=Link]::before { background: var(--link) }
+.sample-frame { display: grid; justify-items: start; align-content: end; gap: 14px; min-height: 200px; padding: 22px; border-radius: 20px; background-color: #030405; background-position: 45% 45%; background-size: cover }
+.sample-frame > a { background-color:#101215d4; padding:4px 10px; border-radius:10px; font-size:14px }

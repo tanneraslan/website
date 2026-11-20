@@ -12,7 +12,8 @@ import { EarthAtmosphere } from './atmosphere'
 import { createClouds, type CloudSource } from './clouds'
 import { CityBloomPass } from './city-bloom'
 import { createComposite } from './composite'
-import { createEllipsoid, createPins, createSurface } from './surface'
+import { cameraDistanceInRadii, globeDiameterFraction, orbitAngles } from './locations'
+import { createEllipsoid, createSurface } from './surface'
 import { loadCityPoints } from './city-points'
 
 export type EarthPose = 'crescent' | 'experience'
@@ -25,6 +26,7 @@ export interface EarthOptions {
   glassBounds?: () => DOMRect | null
 }
 export interface EarthController {
+  observeOrbit: (listener: (progress: number) => void) => () => void
   setPose: (pose: EarthPose) => void
   setSunOffset: (degrees: number) => void
   setCompare: (enabled: boolean) => void
@@ -36,7 +38,7 @@ export interface EarthController {
 }
 
 const radius = Ellipsoid.WGS84.radii.x
-const cameraDistance = 4 * radius
+const cameraDistance = cameraDistanceInRadii * radius
 const northPole = new Vector3(0, 0, 1)
 const orbitTime = 1400
 
@@ -57,8 +59,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const scene = new Scene()
   const surface = createSurface()
   const globe = new Mesh(createEllipsoid(), surface)
-  const pins = createPins()
-  scene.add(globe, pins)
+  scene.add(globe)
   const atmosphere = new EarthAtmosphere(camera)
   const composite = createComposite()
   const composer = new EffectComposer(renderer, { frameBufferType: HalfFloatType })
@@ -72,7 +73,6 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, surface.uniforms.night, anisotropy, invalidate,
     source => options.onCloudSource?.(source))
   scene.add(clouds.mesh)
-  pins.renderOrder = 3
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
   const east = new Vector3()
   const north = new Vector3()
@@ -83,6 +83,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const localY = new Vector3(0, 1, 0)
   let pose = options.initialPose
   let progress = pose === 'experience' ? 1 : 0
+  const orbitListeners = new Set<(progress: number) => void>()
   let startProgress = progress
   let targetProgress = progress
   let transitionStart = 0
@@ -120,8 +121,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     composer.dispose()
     globe.geometry.dispose()
     surface.dispose()
-    pins.geometry.dispose()
-    pins.material.dispose()
+    orbitListeners.clear()
     textures.forEach(texture => texture.dispose())
     renderer.dispose()
   }
@@ -154,16 +154,16 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
         camera.aspect = pane / h
         // tan(angular radius) projected onto a centered perspective plane.
         const tangent = radius / Math.sqrt(cameraDistance ** 2 - radius ** 2)
-        camera.fov = 2 * MathUtils.radToDeg(Math.atan(tangent / (0.85 * Math.min(1, camera.aspect))))
+        camera.fov = 2 * MathUtils.radToDeg(Math.atan(tangent / (globeDiameterFraction * Math.min(1, camera.aspect))))
         camera.updateProjectionMatrix()
-        pins.material.uniforms.pixelRatio.value = dpr
         composite.viewport.value.set(pane, h)
         scheduleRefinement()
       }
       const t = reducedMotion.matches ? 1 : MathUtils.clamp((time - transitionStart) / orbitTime, 0, 1)
+      const previousProgress = progress
       progress = MathUtils.lerp(startProgress, targetProgress, t * t * (3 - 2 * t))
-      const lat = MathUtils.degToRad(MathUtils.lerp(28, 40, progress))
-      const lon = MathUtils.degToRad(MathUtils.lerp(-88, -98, progress))
+      if (progress !== previousProgress) orbitListeners.forEach(listener => listener(progress))
+      const { latitude: lat, longitude: lon } = orbitAngles(progress)
       towardCamera.set(Math.cos(lat)*Math.cos(lon), Math.cos(lat)*Math.sin(lon), Math.sin(lat))
       east.crossVectors(northPole, towardCamera).normalize()
       north.crossVectors(towardCamera, east)
@@ -178,8 +178,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       points?.updateView(camera.position, atmosphere.sunDirection)
       surface.uniforms.cubeMix.value = reducedMotion.matches && cubeReadyAt !== Infinity
         ? 1 : MathUtils.clamp((time - cubeReadyAt) / 300, 0, 1)
-      pins.visible = progress > 0.48
-      pins.material.uniforms.strength.value = MathUtils.smoothstep(progress, 0.48, 0.88)
+      clouds.advance(time)
       const glass = options.glassBounds?.()
       const bounds = glass ? canvas.getBoundingClientRect() : null
       renderer.setScissorTest(compare)
@@ -343,7 +342,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     for (const texture of Object.values(tables)) if (texture) textures.add(texture)
     Object.assign(atmosphere, tables)
   })
-  Promise.all([loadMap('day', true), loadMap('night'), loadMap('relief'), atmosphereTextures])
+  Promise.all([loadMap('day', true), loadMap('night'), loadMap('relief'), atmosphereTextures, clouds.loadSnapshot()])
     .then(([day, night, relief]) => {
       if (disposed) return
       surface.uniforms.day.value = day
@@ -358,6 +357,11 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     })
 
   return {
+    observeOrbit(listener) {
+      orbitListeners.add(listener)
+      listener(progress)
+      return () => { orbitListeners.delete(listener) }
+    },
     setPose(next) {
       if (disposed) return
       if (next !== pose) {

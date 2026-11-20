@@ -1,4 +1,5 @@
-import Link from 'next/link'
+import { SiteLink } from '@/components/SiteLink'
+
 export default function NotFound() {
-  return <section className="missing"><p>404</p><h1>Page not found.</h1><Link href="/">Return to Tanner’s homepage</Link></section>
+  return <section className="missing"><h1>Page not found</h1><p><SiteLink href="/">Return to the overview</SiteLink></p></section>
 }

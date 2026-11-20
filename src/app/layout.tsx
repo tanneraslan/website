@@ -1,17 +1,6 @@
 import type { Metadata, Viewport } from 'next'
-import localFont from 'next/font/local'
 import { SiteFrame } from '@/components/SiteFrame'
 import './globals.css'
-
-const sans = localFont({
-  src: [
-    { path: './Pangram-Regular.woff2', weight: '400' },
-    { path: './Pangram-Bold.woff2', weight: '700' },
-  ],
-  variable: '--sans',
-  display: 'swap',
-})
-const mono = localFont({ src: './Supply-Regular.woff2', variable: '--mono', display: 'swap' })
 
 const description = 'Tanner Aslan is a software engineer and graphics programmer studying computer science at the University of Michigan. Explore his work and an interactive Earth rendered from satellite imagery.'
 
@@ -25,7 +14,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: '#030507', colorScheme: 'dark' }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+  return <html lang="en" >
     <body><SiteFrame>{children}</SiteFrame></body>
   </html>
 }

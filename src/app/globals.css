@@ -1,146 +1,144 @@
+@import "@lenso/tokens/styles.css";
+@stylex;
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 :root {
   color-scheme: dark;
-  --space: #030507;
-  --ink: #f4f3ef;
-  --muted: #aaaeb4;
-  --ember: #f5ad76;
-  background: var(--space);
+  --page: #090a0c;
+  --surface: #17181b;
+  --ink: #f5f5f7;
+  --muted: #a7a8ae;
+  --line: rgb(255 255 255 / .13);
+  --link: #83baff;
+  --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--page);
   color: var(--ink);
-  font-family: var(--sans), -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
 }
 * { box-sizing: border-box }
 body { margin: 0 }
-a { color: inherit; text-decoration: none }
+.site {
+  --lenso-font-body: var(--sans);
+  --lenso-link: var(--link);
+  --lenso-control-switch-on: #686a70;
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--page);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+  --gutter: clamp(20px, 5vw, 84px);
+}
 button, input { font: inherit }
-button, summary { cursor: pointer }
-:focus-visible { outline: 2px solid var(--ember); outline-offset: 5px }
-.site { position: relative; isolation: isolate; overflow: clip; min-height: 100svh; display: flex; flex-direction: column; --gutter: clamp(22px, 5.3vw, 100px) }
-.stars { position: fixed; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; background: radial-gradient(ellipse at 80% 43%, #0a1016 0, #06090c 30%, #030507 72%) }
-.stars i { position: absolute; border-radius: 50%; background: #d5dfec }
-.masthead, .footer { position: relative; z-index: 3; margin: 0 var(--gutter); display: flex; align-items: center; justify-content: space-between; gap: 1rem }
-.masthead { height: 92px; flex-shrink: 0; border-bottom: 1px solid #ffffff19 }
-.brand, .contact, .text-link, .primary-link, .location, .credits summary { display: inline-flex; align-items: center; gap: .65rem }
-.brand { font-weight: 700; letter-spacing: -.035em; font-size: 19px }
-.mark { width: 38px; height: 38px }
-.masthead nav { display: flex; gap: clamp(18px, 2.3vw, 40px); align-self: center; align-items: center; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) }
-.masthead nav a, .contact { font-size: 14px; color: #abb1b8; transition: color .18s }
-.masthead nav a[aria-current], .masthead nav a:hover, .contact:hover, .text-link:hover { color: white }
-.masthead nav a[aria-current] { text-decoration: underline; text-decoration-color: var(--ember); text-underline-offset: 8px; text-decoration-thickness: 2px }
-.contact { color: var(--ink) }
-.composition { position: relative; flex: 1; display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); align-items: center; padding: 25px var(--gutter) 35px; min-height: min(690px, calc(100svh - 165px)) }
-.page-copy { position: relative; z-index: 1; pointer-events: none }
-.page-copy :is(a, button) { pointer-events: auto }
-.eyebrow, .footer, .sun-control, .viewer-controls small { font-family: var(--mono), ui-monospace, monospace }
-.eyebrow { display: flex; align-items: center; gap: 13px; text-transform: uppercase; letter-spacing: .15em; font-size: 12px; color: #c0b6a8; margin: 0 0 26px }
-.rule { display: inline-block; width: 28px; height: 1px; background: var(--ember) }
-h1, h2, p { margin: 0 }
-h1 { letter-spacing: -.08em; font-weight: 400; line-height: .9; font-size: clamp(78px, 8.7vw, 155px) }
-.accent { color: var(--ember) }
-.lede { color: #b3b7bd; max-width: 370px; font-size: clamp(17px, 1.5vw, 23px); line-height: 1.48; margin-top: 27px; text-wrap: pretty }
-.actions { display: flex; align-items: center; gap: 27px; margin-top: 36px }
-.primary-link, .text-link { font-size: 15px }
-.primary-link { border-radius: 30px; background: #eeeae2; color: #13171a; padding: 14px 19px; gap: 15px; transition: background .2s }
-.primary-link:hover { background: white }
-.text-link { color: #c9ccd0 }
-.observatory { position: relative; align-self: center; width: min(63vw, 82svh, 980px); justify-self: center; aspect-ratio: 1; }
-.globe, .planet-poster, .canvas-host, .canvas-host canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100% }
-.globe { pointer-events: none }
-.viewer-controls { position: absolute; z-index: 2; left: 50%; bottom: 5%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 100% }
-.glass-pod { position: relative; isolation: isolate; display: flex; align-items: center; gap: 3px; padding: 5px; border: 1px solid #d7e0ec40; border-radius: 80px; box-shadow: inset 0 1px 1px #ffffff35, inset 0 -1px 1px #ffffff0d,0 8px 26px #0008 }
-.glass-pod::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; background: linear-gradient(155deg, #b3c9d819, #0f141cdc 58%, #4d596340); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px) }
-@supports (backdrop-filter: url("#glass-edge")) { .glass-pod::before { backdrop-filter: url("#glass-edge") blur(2px) } }
-.glass-pod button { display: inline-flex; align-items: center; gap: 8px; background: transparent; border: 0; border-radius: 55px; color: #bfc4ca; padding: 11px 15px; font-size: 14px; line-height: 1; white-space: nowrap }
-.glass-pod button[aria-pressed="true"] { color: white; background: #c5d1dd22; box-shadow: inset 0 1px 0 #ffffff25 }
-.glass-pod button:hover { color: white }
-.filter-bank { position: absolute; width: 0; height: 0; pointer-events: none }
-.footer { min-height: 70px; border-top: 1px solid #ffffff19; color: #9ba2a9; font-size: 12px }
-.location svg { color: var(--ember) }
-.credits { position: relative }
-.credits summary { list-style: none; min-height: 38px }
-.credits summary::-webkit-details-marker { display: none }
-.credits-card { position: absolute; z-index: 4; bottom: 100%; right: 0; min-width: 265px; padding: 18px; border-radius: 14px; border: 1px solid #ffffff35; background: #11161c; font-family: var(--sans), sans-serif; color: #c1c6cc; font-size: 14px; box-shadow: 0 10px 30px #0008 }
-.credits-card strong { display: block; margin-bottom: 10px; color: var(--ink) }
-.credits-card a { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 7px 0 }
-.credits-card a:hover { text-decoration: underline }
-.resume .composition { align-items: start; }
-.resume .page-copy { padding: 45px 0 55px }
-.resume h1, .lab h1 { font-size: clamp(56px, 5.8vw, 98px) }
-.resume .observatory { position: sticky; top: 0; align-self: start }
-.experience-list { margin: 28px 0 0; padding: 0; list-style: none; max-width: 440px }
-.experience-list li, .education { border-top: 1px solid #ffffff25; padding: 15px 0; }
-.experience-list h2, .education h2 { font-size: 20px; font-weight: 400; letter-spacing: -.025em }
-.experience-list p, .education p { color: #b5b9be; font-size: 15px; margin: 4px 0 }
-.experience-list small, .education small { color: #949ba3; font-size: 12px; font-family: var(--mono), monospace }
-.education { max-width: 440px }
-.sun-control { color: #c3c7cc; display: flex; gap: 9px; align-items: center; white-space: nowrap; font-size: 12px; padding: 6px 9px; border-radius: 20px; background: #05090cbb }
-.sun-control input { width: 100px; accent-color: #e2af85 }
-.sun-control output { width: 30px }
-.viewer-controls small { color: var(--muted); white-space: nowrap }
-.skip-link { position: absolute; top: 4px; left: 4px; padding: 10px; background: white; color: black; z-index: 10; transform: translateY(-150%) }
+button { cursor: pointer }
+button:disabled { cursor: default }
+a { color: var(--link); text-underline-offset: .18em }
+:focus-visible { outline: 2px solid var(--link); outline-offset: 4px }
+.skip-link { position: fixed; left: 16px; top: 8px; z-index: 10; background: var(--surface); padding: 10px 16px; border-radius: 12px; transform: translateY(-160%) }
 .skip-link:focus { transform: none }
-@media (max-width: 740px) {
-  .masthead { height: 65px }
-  .masthead nav { position: static; transform: none; gap: 15px }
-  .brand span, .contact { display: none }
-  .masthead nav a { font-size: 13px }
-  .composition { grid-template-columns: minmax(0, 1fr); min-height: auto; align-content: start; padding-top: 42px; padding-bottom: 14px }
-  .observatory { width: min(100vw, 620px); max-width: none; position: relative; margin-top: -6px }
-  .home h1 { font-size: clamp(64px, 12vw, 90px) }
-  .home h1 br { display: none }
-  .home h1 br::after { content: ' ' }
-  .eyebrow { font-size: 10px; margin-bottom: 16px; gap: 10px }
-  .lede { font-size: 17px; margin-top: 15px; max-width: 360px }
-  .actions { margin-top: 20px; gap: 22px }
-  .primary-link { padding: 12px 16px }
-  .viewer-controls { bottom: 2% }
-  .lab .viewer-controls { bottom: 0 }
-  .footer { min-height: 60px; font-size: 10px }
-  .resume .page-copy { padding: 0 }
-  .resume .observatory { grid-row: 1; position: relative; top: auto; width: min(86vw, 390px); margin: -34px 0 18px }
+.masthead, .footer { width: min(calc(100% - 2 * var(--gutter)), 1380px); margin-inline: auto; display: flex; justify-content: space-between; align-items: center; gap: 20px }
+.masthead { min-height: 74px; border-bottom: 1px solid var(--line); position: relative; z-index: 3 }
+.masthead [data-kind=brand] { display: inline-flex; align-items: center; gap: 9px; color: var(--ink) !important; font-size: 17px; font-weight: 620; letter-spacing: -.045em; text-decoration: none }
+.mark { width: 32px; height: 32px }
+.masthead nav { display: flex; align-items: center; gap: 3px }
+.masthead nav a { padding: 8px 13px; border-radius: 20px !important; font-size: 14px; color: #b5b6bd !important; text-decoration: none; font-weight: 470; white-space: nowrap }
+.masthead nav a:is(:hover,[aria-current]) { color: var(--ink) !important; background: #ffffff10 }
+.composition { width: min(calc(100% - 2 * var(--gutter)), 1380px); margin-inline: auto; flex: 1; }
+.site h1, .site h2, .site h3 { color: var(--ink); text-wrap: balance }
+.site h1 { margin: 0; font-size: clamp(42px, 5.2vw, 80px); line-height: 1.02; letter-spacing: -.065em; font-weight: 620 }
+.site h2 { line-height: 1.14; letter-spacing: -.035em; font-weight: 600 }
+.site h3 { line-height: 1.25; letter-spacing: -.025em; font-weight: 580 }
+.site p { line-height: 1.6 }
+.site .lede { color: #b5b6bd; margin: 18px 0 0; line-height: 1.43; text-wrap: pretty; font-size: clamp(17px, 1.5vw, 23px); letter-spacing: -.024em }
+.home .composition { display: grid; grid-template-columns: .85fr 1.15fr; align-items: center }
+.home .page-copy { display: contents }
+.intro { grid-row: 1; grid-column: 1; position: relative; z-index: 1; padding: 70px 0 }
+.intro h1 { max-width: 7em; font-size: clamp(68px, 7.8vw, 122px); line-height: .98 }
+.intro .lede { max-width: 23em }
+.actions { display: flex; align-items: center; gap: 24px; margin-top: 32px }
+.actions a { font-weight: 550; font-size: 15px }
+.actions [data-kind=primary] { padding: 12px 21px; border-radius: 99px !important; color: #151518 !important; background: #f5f5f7; text-decoration: none }
+.observatory { position: relative; min-width: 0; width: 100% }
+.home .observatory { grid-column: 2; grid-row: 1; width: min(62vw, 78svh, 860px); justify-self: center; margin: 16px 0 }
+.earth-frame { position: relative; width: 100%; aspect-ratio: 1 }
+.globe, .planet-poster, .canvas-host, .canvas-host canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
+.globe { pointer-events: none }
+.planet-poster, .canvas-host { transition: opacity .20s ease-in-out }
+.planet-poster[data-fade=true] { opacity: 0 }
+.viewer-controls { display: flex; align-items: center; justify-content: center; gap: 18px; flex-wrap: wrap; position: relative; z-index: 1 }
+.home .viewer-controls { position: absolute; bottom: 26%; left: 50%; transform: translateX(-50%) }
+.glass-pod {
+  position: relative; isolation: isolate; border-radius: 40px; padding: 3px; width: max-content;
+  border: 1px solid rgb(255 255 255 / .2);
+  background: linear-gradient(160deg,#e2e8f91a,#24273052 48%,#30313744);
+  box-shadow: inset 0 .5px .8px #ffffff4a, 0 3px 10px #0004;
 }
-@media (prefers-reduced-motion: reduce) { *, *::before { scroll-behavior: auto !important; transition-duration: 0s !important } }
-@media (prefers-reduced-transparency: reduce) { .glass-pod::before { background: #1b2026; backdrop-filter: none } }
-.missing { min-height: 100svh; display: grid; align-content: center; justify-items: start; gap: 24px; padding: 6vw }
-.missing a { text-decoration: underline; text-underline-offset: 4px }
-@media (prefers-reduced-transparency: no-preference) {
-  .glass-pod[data-live="true"] { border-color: #d7e0ec26; box-shadow: 0 5px 18px #0005 }
-  .glass-pod[data-live="true"]::before { inset: 2px; background: linear-gradient(150deg, #9fa6af26, #10151aa8 64%, #363c4359); backdrop-filter: none; -webkit-backdrop-filter: none }
+.glass-pod::before { content: ""; position: absolute; inset: 1px; border-radius: inherit; z-index: -1; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: #16191e70 }
+.glass-pod[data-live=true]::before { backdrop-filter: none; -webkit-backdrop-filter: none; background: #16191e36 }
+.glass-pod [data-lenso-slot=segmented-control] { background: transparent; box-shadow: none; padding: 0; border: 0; border-radius: inherit; min-height: 36px }
+.glass-pod [data-lenso-slot=segmented-control-label] { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap }
+.glass-pod [data-lenso-slot=segmented-control-label] svg { width: 16px }
+.glass-pod [role=radio] { padding-inline: 13px; font-family: inherit; color: #f5f5f7; font-size: 14px }
+.home-story { grid-column: 1/-1; grid-row: 2; border-top: 1px solid var(--line); padding: clamp(45px,7vw,100px) 0; display: grid; grid-template-columns: minmax(0, 640px) minmax(210px,380px); justify-content: space-between; align-items: start; gap: clamp(40px,7vw,140px) }
+.biography h2 { font-size: clamp(32px, 3vw, 48px); margin: 0 0 24px }
+.biography p { color: #c4c5cb; font-size: 17px }
+.home-photo { margin: 0 }
+.home-photo img { width: 100%; height: auto; aspect-ratio: 4/5; object-fit: cover; border-radius: 20px; display: block }
+.home-photo figcaption { display: flex; justify-content: space-between; gap: 10px; margin-top: 13px; font-size: 14px; color: var(--muted) }
+.atlas .composition { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; gap: clamp(16px,3vw,54px); padding-block: clamp(35px,5vw,72px) }
+.atlas .page-copy { min-width: 0 }
+.atlas .observatory { position: sticky; top: 24px }
+.atlas .viewer-controls { margin: -3% auto 16px }
+.lab .composition { padding-block: 40px; display: grid; gap: 10px }
+.lab-intro { display: flex; justify-content: space-between; align-items: end; gap: 24px }
+.lab-intro .lede { max-width: 30em; font-size: 17px; margin: 0 }
+.lab .observatory { display: flex; flex-direction: column; align-items: center }
+.lab .earth-frame, .lab .view-labels { width: min(100%, 1060px, 118svh) }
+.lab .earth-frame { aspect-ratio: 2 }
+.lab .earth-frame::after { content: ''; position: absolute; left: 50%; top: 10%; bottom: 10%; border-left: 1px solid var(--line); pointer-events: none }
+.lab .planet-poster { width: 50% }
+.lab .points-poster { left: 50% }
+.view-labels { display: grid; grid-template-columns: 1fr 1fr; text-align: center; color: var(--muted); font-size: 15px }
+.lab .viewer-controls { margin: 24px 0 8px; gap: 16px 28px }
+.sweep, .lighting-layers { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px 16px }
+.sweep [data-lenso-slot=slider] { min-width: 130px }
+.slider-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 14px }
+.slider-label output { font-variant-numeric: tabular-nums }
+.viewer-controls small { color: var(--muted); font-size: 13px }
+.footer { padding-block: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px }
+.footer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 16px }
+.footer [data-kind=credits] { position: relative }
+.footer [data-kind=credits] button { display: flex; align-items: center; gap: 6px; background: none; color: var(--muted); font: inherit; border: 0 }
+.credits-card { position: absolute; bottom: calc(100% + 10px); right: 0; z-index: 4; width: min(290px,80vw); display: grid; gap: 10px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: #1c1c1f; box-shadow: 0 12px 48px #0007 }
+.missing { padding-block: 100px }
+@media (max-width: 760px) {
+  .masthead { flex-wrap: wrap; gap: 6px; padding: 14px 0 9px }
+  .masthead nav { width: 100%; overflow-x: auto; scrollbar-width: none }
+  .masthead nav a { font-size: 13px; padding: 8px 5px !important }
+  .home .composition { grid-template-columns: 1fr }
+  .intro { padding: 46px 0 0; text-align: center }
+  .intro h1, .intro .lede { margin-inline: auto }
+  .actions { justify-content: center; margin-top: 20px }
+  .home .observatory { grid-column: 1; grid-row: 2; width: min(100vw,520px); margin: 6px 0 20px }
+  .home-story { grid-row: 3; grid-template-columns: 1fr }
+  .home-photo { max-width: 440px; }
+  .atlas .composition { display: flex; flex-direction: column; gap: 18px; align-items: stretch; padding-top: 16px }
+  .atlas .observatory { position: relative; top: auto; order: -1; width: min(100%,440px); margin: 0 auto }
+  .lab-intro { display: block }
+  .lab-intro .lede { margin-top: 14px }
+  .lab .earth-frame, .lab .view-labels { width: 100vw; max-width: 100vw }
+  .lab .composition { padding-block: 34px; gap: 24px }
+  .lab .viewer-controls { flex-direction: column }
+  .view-labels { font-size: 13px }
+  .footer { flex-wrap: wrap }
 }
-.home .viewer-controls, .resume .viewer-controls { bottom: 32%; }
-@media (min-width: 741px) { .viewer-controls { bottom: 10% } }
-.earth-frame { position: absolute; inset: 0; }
-.lab .composition { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 18px; padding-top: 26px; padding-bottom: 26px; }
-.lab .lab-intro { display: grid; grid-template-columns: 1fr minmax(220px, 380px); align-items: end; gap: 10px 24px; }
-.lab .eyebrow { grid-column: 1 / -1; margin: 0; }
-.lab h1 { font-size: clamp(48px, 4.4vw, 76px); }
-.lab .lede { margin: 0; font-size: 17px; }
-.lab .observatory { position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; aspect-ratio: auto; margin: 0; }
-.lab .earth-frame, .lab .view-labels { width: min(100%, 1130px, 126svh); }
-.lab .earth-frame { position: relative; inset: auto; aspect-ratio: 2; }
-.lab .earth-frame::after { content: ''; position: absolute; left: 50%; top: 8%; bottom: 8%; border-left: 1px solid #c1c8ce23; pointer-events: none; }
-.lab .planet-poster { width: 50%; height: 100%; }
-.lab .points-poster { left: 50%; }
-.view-labels { display: grid; grid-template-columns: 1fr 1fr; text-align: center; font-family: var(--mono), monospace; font-size: 13px; color: #c0c5cb; }
-.lab .viewer-controls { position: static; transform: none; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 16px; margin: 22px auto 0; }
-.sweep { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 12px; }
-.sweep .sun-control { background: transparent; }
-.sweep .sun-control input { width: clamp(90px, 14vw, 220px); }
-.sweep .sun-control output { width: 38px; font-variant-numeric: tabular-nums; }
-.sweep-button { display: inline-flex; align-items: center; gap: 8px; min-width: 118px; justify-content: center; padding: 10px 14px; border-radius: 24px; border: 1px solid #ffffff40; background: #151b21; color: var(--ink); font-size: 14px; }
-.sweep-button:hover:enabled { background: #273039; }
-.sweep-button:disabled { cursor: default; opacity: .5; }
-@media (max-width: 740px) {
-  .lab .composition { flex: 1; padding-top: 28px; padding-bottom: 30px; justify-content: center; gap: 28px; }
-  .lab .lab-intro { display: block; }
-  .lab .eyebrow { margin-bottom: 12px; }
-  .lab .lede { margin-top: 14px; }
-  .lab .observatory { width: 100vw; }
-  .view-labels { font-size: 12px; }
-  .lab .viewer-controls { flex-direction: column; margin-top: 20px; gap: 8px; }
-}
-
-.lighting-layers { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 0 16px; }
-.lighting-layers label { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; font-size: 14px; color: #d0d3d7; cursor: pointer; }
-.lighting-layers input { width: 16px; height: 16px; margin: 0; accent-color: var(--ember); }
-.lighting-layers label:has(:disabled) { opacity: .5; cursor: default; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important } .canvas-host, .planet-poster { transition: none } }
+@media (prefers-reduced-transparency: reduce) { .glass-pod, .glass-pod::before, .glass-pod[data-live=true]::before { background: #242529; backdrop-filter: none; -webkit-backdrop-filter: none } }

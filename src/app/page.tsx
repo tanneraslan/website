@@ -1,17 +1,32 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { Icon } from '@/components/Icon'
+import Image from 'next/image'
+import { readFrontmatter } from '@/content/metadata'
+import About from '@/content/index.mdx'
+import { SiteLink } from '@/components/SiteLink'
 
 export const metadata: Metadata = { alternates: { canonical: '/' } }
 
-export default function Home() {
-  return <section className="intro">
-    <p className="eyebrow"><span className="rule" />Software engineer</p>
-    <h1>Tanner <br/>Aslan<span className="accent">.</span></h1>
-    <p className="lede">I build real-time graphics, simulations, and software for the web.</p>
-    <div className="actions">
-      <Link className="primary-link" href="/resume">View résumé <Icon name="arrow"/></Link>
-      <a className="text-link" href="https://github.com/tanneraslan">GitHub <Icon name="external"/></a>
-    </div>
-  </section>
+export default async function Home() {
+  const {title, intro, featuredPhoto: photo} = await readFrontmatter<{
+    title: string, intro: string, featuredPhoto: { src: string, alt: string, caption: string }
+  }>('index.mdx')
+  return <>
+    <section className="intro">
+      <h1>{title}</h1>
+      <p className="lede">{intro}</p>
+      <div className="actions">
+        <SiteLink href="/resume" data-kind="primary">View résumé</SiteLink>
+        <SiteLink href="/posts">Read the blog</SiteLink>
+      </div>
+    </section>
+    <section className="home-story">
+      <div className="biography"><About /></div>
+      <figure className="home-photo">
+        <SiteLink href="/photos" aria-label="Explore Tanner’s photo albums">
+          <Image src={photo.src} alt={photo.alt} sizes="(max-width: 760px) 90vw, 380px" width={480} height={600} />
+        </SiteLink>
+        <figcaption><span>{photo.caption}</span><SiteLink href="/photos">All photos</SiteLink></figcaption>
+      </figure>
+    </section>
+  </>
 }

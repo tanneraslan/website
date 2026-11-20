@@ -1,5 +1,7 @@
 'use client'
 
+import { Button } from '@lenso/ui/button'
+import { Slider } from '@lenso/ui/slider'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { EarthController } from '@/earth'
 
@@ -41,18 +43,17 @@ export function SunSweep({ scene, enabled }: {
   }, [scene])
 
   return <div className="sweep">
-    <label className="sun-control">
-      <span>Sun angle</span>
-      <input type="range" min="-180" max="180" step="1" value={degrees} disabled={!enabled}
-        onChange={event => { setPlaying(false); applyAngle(Number(event.target.value)) }}/>
-      <output>{degrees}°</output>
-    </label>
-    <button className="sweep-button" type="button" disabled={!enabled}
+    <Slider.Root aria-label="Sun angle" min={-180} max={180} step={1} value={degrees}
+      disabled={!enabled} onValueChange={value => { setPlaying(false); applyAngle(Number(value)) }}>
+      <div className="slider-label"><span>Sun angle</span><Slider.Output>{degrees}°</Slider.Output></div>
+      <Slider.Control><Slider.Track><Slider.Fill/></Slider.Track><Slider.Thumb aria-label="Sun angle" /></Slider.Control>
+    </Slider.Root>
+    <Button variant="bordered" size="sm" disabled={!enabled}
       onClick={() => setPlaying(!playing)}>
       <svg width="14" height="14" aria-hidden="true" viewBox="0 0 16 16" fill="currentColor">
         {playing && enabled ? <path d="M3 2h3v12H3zm7 0h3v12h-3z"/> : <path d="M4 2.2 13 8l-9 5.8z"/>}
       </svg>
       {playing && enabled ? 'Pause sweep' : 'Play sweep'}
-    </button>
+    </Button>
   </div>
 }
