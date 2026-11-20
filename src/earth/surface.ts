@@ -1,4 +1,5 @@
 import { Geodetic } from '@takram/three-geospatial'
+import { nightLightingGLSL } from './night-lighting'
 import { cityTwilightGLSL } from './city-points'
 import {
   BufferGeometry, Float32BufferAttribute, MathUtils, Points, ShaderMaterial,
@@ -41,6 +42,7 @@ export function createSurface() {
       uniform vec3 sunDirection;
       varying vec3 surfacePosition;
       ${cityTwilightGLSL}
+      ${nightLightingGLSL}
       void main() {
         // Geodetic normal = normalized position divided by squared ellipsoid radii.
         vec3 normal = normalize(surfacePosition * vec3(1.0, 1.0, 1.0067394967));
@@ -87,6 +89,14 @@ export function createSurface() {
         float core = smoothstep(0.5, 0.98, lights);
         vec3 lampColor = mix(vec3(1.0, 0.52, 0.17), vec3(1.25, 1.03, 0.75), core);
         float groundValue = dot(color, vec3(0.2126, 0.7152, 0.0722));
+        float nightWeight = nightExposure(solarElevation);
+        float landReflectance = 0.012 + 0.070 * sqrt(groundValue);
+        float moon = moonIllumination(terrainNormal) * mix(landReflectance, 0.004, material.b);
+        float airPath = 1.0 - max(dot(normal, view), 0.0);
+        vec3 air = vec3(0.0025, 0.0037, 0.0090) * (1.0 + 0.6 * airPath);
+        vec3 cityAir = vec3(0.052, 0.036, 0.026) * urbanHaze(night, geoUV) * (1.0 + airPath);
+        radiance += nightWeight * (moon * vec3(0.51, 0.65, 1.12) + air + cityAir);
+
         float nightRelief = pow(max(dot(normal, terrainNormal), 0.0), 3.0);
         float groundGlow = groundGlowStrength * spill * (0.30 + pow(groundValue, 0.67))
           * nightRelief * (1.0 - material.b);

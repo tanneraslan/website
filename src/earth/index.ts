@@ -69,7 +69,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const textures = new Set<Texture>()
   const textureLoader = new TextureLoader()
   const anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy())
-  const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, anisotropy, invalidate,
+  const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, surface.uniforms.night, anisotropy, invalidate,
     source => options.onCloudSource?.(source))
   scene.add(clouds.mesh)
   pins.renderOrder = 3

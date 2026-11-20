@@ -10,7 +10,7 @@ Use Node.js 22 or newer. Run `npm ci` and `npm run dev`. The Earth controls are 
 
 The browser requests a small global day map, city lights, packed relief and ocean coverage, and locally hosted atmospheric scattering tables. After the first frame, day imagery refines to a six-face cube projected from a 21,600 × 10,800 source. The drawn globe size selects 1024- or 2048-pixel faces, with sharper night and relief maps for larger globes. Clouds use a separate 8.5 km shell lit by the shared sun. After the first frame the renderer loads a small bundled snapshot and requests Matt Eason’s latest 1024- or 2048-pixel cloud coverage. A visible tab checks again after three hours. The lab’s Clouds control applies to both globes. Contains modified EUMETSAT data. [Live Cloud Maps](https://github.com/matteason/live-cloud-maps)
 
-Wide atmosphere exaggerates the apparent altitude above the horizon sixfold using Takram’s scattering tables. Switching it off restores physical thickness. Surface haze still uses the physical model in both modes.
+Wide atmosphere exaggerates the apparent altitude above the horizon sixfold using Takram’s scattering tables. Switching it off restores physical thickness. The lab keeps an artistic moon fixed over the North Pacific during sun sweeps. Its light reveals terrain and cloud tops and scatters along the night horizon. A coarse mip of the night map supplies localized city skyglow in the air and clouds. A hue adjustment on scattered light reduces violet at the daylight horizon.
 
 The renderer redraws on demand. With WebGL unavailable, the two controls switch between matching static views.
 

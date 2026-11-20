@@ -1,3 +1,4 @@
+import { nightLightingGLSL } from './night-lighting'
 import {
   LinearMipmapLinearFilter, Mesh, RepeatWrapping, ShaderMaterial, TextureLoader, Vector3,
   type BufferGeometry, type Texture
@@ -14,12 +15,12 @@ export const cloudCoverageGLSL = `
 
 export type CloudSource = 'loading' | 'live' | 'snapshot' | 'unavailable'
 
-export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, anisotropy: number,
+export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, nightMap: { value: Texture | null }, anisotropy: number,
   invalidate: () => void, onSource: (source: CloudSource) => void) {
   const uniforms = {
     cloudMap: { value: null as Texture | null },
     cloudStrength: { value: 0 },
-    sunDirection: { value: sunDirection }
+    sunDirection: { value: sunDirection }, nightMap
   }
   const material = new ShaderMaterial({
     transparent: true, depthWrite: false, depthTest: false, uniforms,
@@ -32,8 +33,10 @@ export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, an
       }`,
     fragmentShader: `
       uniform vec3 sunDirection;
+      uniform sampler2D nightMap;
       varying vec3 shellPosition;
       ${cloudCoverageGLSL}
+      ${nightLightingGLSL}
       void main() {
         vec3 n = normalize(shellPosition * vec3(1.0, 1.0, 1.0067395));
         vec3 east = vec3(-n.y, n.x, 0.0) / max(length(n.xy), 0.00001);
@@ -48,6 +51,10 @@ export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, an
         vec3 tint = mix(vec3(1.0, 0.60, 0.35), vec3(1.0, 0.98, 0.95), daylight);
         vec3 color = vec3(0.0016, 0.0022, 0.0035) + tint *
           (0.055 * smoothstep(-0.09, 0.12, sun) + 0.90 * max(sun, 0.0));
+        // Cloud coverage modulates both moonlit tops and the light returned
+        // by low clouds over a city. Clear ocean receives no city contribution.
+        color += nightExposure(sun) * (vec3(0.032, 0.041, 0.073) * moonIllumination(n)
+          + vec3(0.16, 0.10, 0.060) * urbanHaze(nightMap, cloudUV(n)));
         gl_FragColor = vec4(color, cloudOpacity(density));
       }`
   })
