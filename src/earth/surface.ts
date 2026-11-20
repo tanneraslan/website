@@ -26,7 +26,7 @@ export function createSurface() {
     uniforms: {
       day: { value: null }, night: { value: null }, relief: { value: null },
       dayCube: { value: null }, cubeMix: { value: 0 },
-      textureCores: { value: 1 }, sunDirection: { value: new Vector3() }
+      textureCores: { value: 1 }, groundGlowStrength: { value: 1 }, sunDirection: { value: new Vector3() }
     },
     vertexShader: `
       varying vec3 surfacePosition;
@@ -37,7 +37,7 @@ export function createSurface() {
     fragmentShader: `
       uniform sampler2D day, night, relief;
       uniform samplerCube dayCube;
-      uniform float cubeMix, textureCores;
+      uniform float cubeMix, textureCores, groundGlowStrength;
       uniform vec3 sunDirection;
       varying vec3 surfacePosition;
       ${cityTwilightGLSL}
@@ -75,15 +75,22 @@ export function createSurface() {
         // The coarse mip carries the light spilled onto the ground. The sharp
         // channel preserves distinct neighborhoods and the cores of large cities.
         float lights = textureGrad(night, geoUV, uvDx, uvDy).r;
-        float spill = textureGrad(night, geoUV, uvDx * 8.0, uvDy * 8.0).r;
+        // Fixed geographic footprints across base/refined night maps. Blend the
+        // two coarse levels to soften cities into the surrounding terrain.
+        float urbanMip = log2(float(textureSize(night, 0).x) / 512.0);
+        float urban = textureLod(night, geoUV, urbanMip).r;
+        float outskirts = textureLod(night, geoUV, urbanMip + 1.0).r;
+        float spill = pow(max(mix(urban, outskirts, 0.55) - 0.002, 0.0), 0.68);
         float localDusk = 0.024 * sin(17.0 * normal.x + 8.0 * normal.z)
           * cos(23.0 * normal.y - 5.0 * normal.z);
         float darkness = cityDarkness(solarElevation + localDusk);
         float core = smoothstep(0.5, 0.98, lights);
         vec3 lampColor = mix(vec3(1.0, 0.52, 0.17), vec3(1.25, 1.03, 0.75), core);
         float groundValue = dot(color, vec3(0.2126, 0.7152, 0.0722));
-        float groundGlow = spill * (0.045 + 0.12 * sqrt(groundValue)) * (1.0 - material.b);
-        radiance += darkness * (textureCores * 1.35 * lights * lampColor + groundGlow * vec3(1.0, 0.37, 0.10));
+        float nightRelief = pow(max(dot(normal, terrainNormal), 0.0), 3.0);
+        float groundGlow = groundGlowStrength * spill * (0.30 + pow(groundValue, 0.67))
+          * nightRelief * (1.0 - material.b);
+        radiance += darkness * (textureCores * 1.35 * lights * lampColor + groundGlow * vec3(1.35, 0.64, 0.22));
         gl_FragColor = vec4(radiance, 1.0);
       }`
   })

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type { EarthPose, EarthController } from '@/earth'
+import type { CloudSource } from '@/earth/clouds'
 import { SunSweep } from './SunSweep'
 import { Icon } from './Icon'
 
@@ -28,11 +29,12 @@ function Stars() {
   )}</div>
 }
 
-function Globe({ pose, compare, glass, scene, onState, onComparisonState }: {
+function Globe({ pose, compare, glass, scene, onState, onComparisonState, onCloudSource }: {
   pose: EarthPose
   compare: boolean
   glass: RefObject<HTMLDivElement | null>
   scene: RefObject<EarthController | null>
+  onCloudSource: (value: CloudSource) => void
   onState: (state: SceneState) => void
   onComparisonState: (state: ComparisonState) => void
 }) {
@@ -63,7 +65,7 @@ function Globe({ pose, compare, glass, scene, onState, onComparisonState }: {
           initialPose: latest.current.pose,
           glassBounds: () => glass.current?.getBoundingClientRect() ?? null,
           onReady: () => { if (!stopped) { setLive(true); onState('live') } },
-          onError: fail,
+          onError: fail, onCloudSource,
           onComparisonState: status => {
             if (stopped) return
             setPointsReady(status === 'ready')
@@ -84,7 +86,7 @@ function Globe({ pose, compare, glass, scene, onState, onComparisonState }: {
       controller?.dispose()
       canvas.remove()
     }
-  }, [glass, scene, onState, onComparisonState])
+  }, [glass, scene, onState, onComparisonState, onCloudSource])
   // Leave the opening poster underneath until all shaders and base maps have rendered.
   const description = compare ? 'Two Earths under the same sun, with satellite city lights on the left and instanced lights on the right'
     : pose === 'crescent' ? 'Earth at night, with city lights and a sunlit crescent' : 'Side-lit Earth centered on North America'
@@ -103,6 +105,8 @@ function Credits() {
       <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/">Day surface · NASA Blue Marble <Icon name="external"/></a>
       <a href="https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/">City lights · NASA Black Marble <Icon name="external"/></a>
       <a href="https://www.ncei.noaa.gov/products/etopo-global-relief-model">Elevation · NOAA ETOPO <Icon name="external"/></a>
+      <a href="https://github.com/matteason/live-cloud-maps">Clouds · Matt Eason <Icon name="external"/></a>
+      <span>Contains modified EUMETSAT data</span>
       <a href="https://github.com/SebLague/Geographical-Adventures">City points · Sebastian Lague <Icon name="external"/></a>
       <a href="/earth/data/credits.txt">Full source credits <Icon name="arrow"/></a>
     </div>
@@ -118,6 +122,17 @@ export function SiteFrame({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<{ path: string, pose: EarthPose } | null>(null)
   const [state, setState] = useState<SceneState>('loading')
   const [comparison, setComparison] = useState<ComparisonState>('loading')
+  const [groundGlow, setGroundGlow] = useState(true)
+  const [clouds, setClouds] = useState(true)
+  const [cloudSource, setCloudSource] = useState<CloudSource>('loading')
+  const [wideAtmosphere, setWideAtmosphere] = useState(true)
+  const [pointBloom, setPointBloom] = useState(true)
+  useEffect(() => {
+    scene.current?.setClouds(!isLab || clouds)
+    scene.current?.setWideAtmosphere(!isLab || wideAtmosphere)
+    scene.current?.setGroundGlow(!isLab || groundGlow)
+    scene.current?.setCityBloom(!isLab || pointBloom)
+  }, [isLab, groundGlow, pointBloom, wideAtmosphere, clouds, state, comparison])
   const pose = selection?.path === path ? selection.pose : isResume ? 'experience' : 'crescent'
   if (!nav.some(([href]) => href === path)) return <main>{children}</main>
   return <div className={`site ${isResume ? 'resume' : isLab ? 'lab' : 'home'}`}>
@@ -133,7 +148,7 @@ export function SiteFrame({ children }: { children: ReactNode }) {
       <div className="page-copy">{children}</div>
       <section className="observatory" aria-label={isLab ? 'City light comparison' : 'Earth viewer'}>
         <div className="earth-frame">
-          <Globe pose={pose} compare={isLab} glass={glass} scene={scene} onState={setState} onComparisonState={setComparison}/>
+          <Globe pose={pose} compare={isLab} glass={glass} scene={scene} onState={setState} onComparisonState={setComparison} onCloudSource={setCloudSource}/>
         </div>
         {isLab && <div className="view-labels"><span>Satellite texture</span><span>Instanced lights</span></div>}
         <div className="viewer-controls">
@@ -142,6 +157,18 @@ export function SiteFrame({ children }: { children: ReactNode }) {
             <button type="button" aria-pressed={pose === 'experience'} onClick={() => setSelection({ path, pose: 'experience' })}><Icon name="sun"/>Daylight</button>
           </div>
           {isLab && <SunSweep key={pose} scene={scene} enabled={state === 'live' && comparison === 'ready'}/>}
+          {isLab && <div className="lighting-layers" role="group" aria-label="Rendering effects">
+            <label><input type="checkbox" checked={groundGlow} disabled={state !== 'live' || comparison !== 'ready'}
+              onChange={event => setGroundGlow(event.target.checked)}/> Terrain glow</label>
+            <label><input type="checkbox" checked={pointBloom} disabled={state !== 'live' || comparison !== 'ready'}
+              onChange={event => setPointBloom(event.target.checked)}/> Point bloom</label>
+            <label><input type="checkbox" checked={wideAtmosphere} disabled={state !== 'live' || comparison !== 'ready'}
+              onChange={event => setWideAtmosphere(event.target.checked)}/> Wide atmosphere</label>
+            <label><input type="checkbox" checked={clouds} disabled={state !== 'live'}
+              onChange={event => setClouds(event.target.checked)}/> Clouds</label>
+          </div>}
+          {isLab && clouds && state === 'live' && (cloudSource === 'snapshot' || cloudSource === 'unavailable') &&
+            <small role="status">{cloudSource === 'snapshot' ? 'Clouds · cached map' : 'Cloud map unavailable'}</small>}
           {isLab && (state === 'poster' || comparison === 'error') && <small role="status">
             {state === 'poster' ? 'Still imagery · live lighting unavailable' : 'Point data unavailable · showing a still comparison'}
           </small>}

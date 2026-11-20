@@ -25,39 +25,47 @@ function lampGeometry() {
   return geometry
 }
 
+// Both the solid lamps and the bloom source use this geometry, phase and
+// photometry. Screen filtering may change their footprint, never their location.
+export const lampVertexGLSL = `
+  attribute vec3 lampCenter;
+  attribute vec2 lampValues;
+  uniform vec3 sunDirection;
+  ${cityTwilightGLSL}
+
+  struct Lamp { vec3 center; vec3 color; float diameter; float viewCos; };
+  Lamp sampleLamp() {
+    Lamp lamp;
+    float intensity = lampValues.x;
+    vec3 normal = normalize(lampCenter * vec3(1.0, 1.0, 1.00673950));
+    vec3 viewDir = normalize(cameraPosition - lampCenter);
+    lamp.viewCos = dot(viewDir, normal);
+    float sunDot = dot(normal, sunDirection);
+    float darkness = cityDarkness(sunDot);
+    float offset = (lampValues.y - 0.5) * 0.10 * 4.0 * darkness * (1.0 - darkness);
+    float scale = cityDarkness(sunDot - offset);
+    // Map Sebastian's world (radius 150) to meters, enlarging diameter 3x for orbit.
+    lamp.diameter = mix(3.15, 24.6, intensity) * 0.01 * (6378137.0 / 150.0) * 3.0 * scale;
+    lamp.center = lampCenter + viewDir * (350.0 + 2200.0 * intensity);
+    lamp.color = mix(vec3(0.6431373, 0.41890523, 0.0),
+                     vec3(1.0, 0.92440695, 0.6839622) * 1.75, intensity);
+    return lamp;
+  }`
+
 function lampMaterial() {
   return new ShaderMaterial({
     uniforms: { sunDirection: { value: new Vector3(1, 0, 0) } },
     vertexShader: `
-      attribute vec3 lampCenter;
-      attribute vec2 lampValues;
-      uniform vec3 sunDirection;
       varying vec3 lampColor;
-      ${cityTwilightGLSL}
+      ${lampVertexGLSL}
       void main() {
-        float intensity = lampValues.x;
-        float phase = lampValues.y;
-        // WGS84 surface normal; the ratio is (semimajor / semiminor)^2.
-        vec3 normal = normalize(lampCenter * vec3(1.0, 1.0, 1.00673950));
-        vec3 viewDir = normalize(cameraPosition - lampCenter);
-        float sunDot = dot(normal, sunDirection);
-        float darkness = cityDarkness(sunDot);
-        // Vary the onset by each lamp's original random seed. Fade the timing
-        // offset at the endpoints so all lights obey the same twilight range.
-        float offset = (phase - 0.5) * 0.10 * 4.0 * darkness * (1.0 - darkness);
-        float scale = cityDarkness(sunDot - offset);
-        if (scale <= 0.0 || dot(viewDir, normal) <= 0.0) {
+        Lamp lamp = sampleLamp();
+        if (lamp.diameter <= 0.0 || lamp.viewCos <= 0.0) {
           gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
           return;
         }
-        // The Unity world has radius 150. Enlarge the emitter diameter 3x for
-        // an orbital camera; retain the authored 3.15:24.6 size range and
-        // per-lamp view bias with a cap that keeps coastlines registered.
-        float diameter = mix(3.15, 24.6, intensity) * 0.01 * (6378137.0 / 150.0) * 3.0;
-        vec3 world = lampCenter + position * diameter * scale + viewDir * (350.0 + 2200.0 * intensity);
-        gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
-        lampColor = mix(vec3(0.6431373, 0.41890523, 0.0),
-                        vec3(1.0, 0.92440695, 0.6839622) * 1.75, intensity);
+        gl_Position = projectionMatrix * viewMatrix * vec4(lamp.center + position * lamp.diameter, 1.0);
+        lampColor = lamp.color;
       }`,
     fragmentShader: `
       varying vec3 lampColor;

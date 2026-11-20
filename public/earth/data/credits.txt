@@ -15,3 +15,6 @@ The base maps are equirectangular, north up, east right, with the global seam at
 Instanced lamps: Sebastian Lague, Geographical Adventures. Original placements, intensities, and per-lamp dusk variation are packed in city-points.bin. See city-points-license.txt for the source and license.
 
 To regenerate the imagery derivatives, see scripts/bake-earth.py in the source repository.
+
+Cloud coverage: Contains modified EUMETSAT data. Maps processed by Matt Eason. The bundled fallback was retrieved on 2026-11-20.
+https://github.com/matteason/live-cloud-maps

@@ -8,7 +8,11 @@ Use Node.js 22 or newer. Run `npm ci` and `npm run dev`. The Earth controls are 
 
 ## Imagery
 
-The browser requests a small global day map, city lights, packed relief and ocean coverage, and locally hosted atmospheric scattering tables. After the first frame, day imagery refines to a six-face cube projected from a 21,600 × 10,800 source. The drawn globe size selects 1024- or 2048-pixel faces, with sharper night and relief maps for larger globes. The renderer redraws on demand. With WebGL unavailable, the two controls switch between matching static views.
+The browser requests a small global day map, city lights, packed relief and ocean coverage, and locally hosted atmospheric scattering tables. After the first frame, day imagery refines to a six-face cube projected from a 21,600 × 10,800 source. The drawn globe size selects 1024- or 2048-pixel faces, with sharper night and relief maps for larger globes. Clouds use a separate 8.5 km shell lit by the shared sun. After the first frame the renderer loads a small bundled snapshot and requests Matt Eason’s latest 1024- or 2048-pixel cloud coverage. A visible tab checks again after three hours. The lab’s Clouds control applies to both globes. Contains modified EUMETSAT data. [Live Cloud Maps](https://github.com/matteason/live-cloud-maps)
+
+Wide atmosphere exaggerates the apparent altitude above the horizon sixfold using Takram’s scattering tables. Switching it off restores physical thickness. Surface haze still uses the physical model in both modes.
+
+The renderer redraws on demand. With WebGL unavailable, the two controls switch between matching static views.
 
 [Dataset credits](public/earth/data/credits.txt) · [Atmosphere and coordinate tools](https://github.com/takram-design-engineering/three-geospatial)
 
@@ -16,7 +20,7 @@ To rebuild the Earth surface maps, install NumPy, Pillow and Rasterio in a Pytho
 
 ## Rendering references
 
-Sebastian Lague’s *Geographical Adventures* pairs concentrated city lights with a softer glow across populated terrain. The lab’s left globe uses a satellite emission texture. The right uses Lague’s shipped light positions, brightness, and dusk variation on small instanced meshes. Both renders share the ground glow, camera, sunlight, scattering, and tone mapping. The point dataset is requested only in the lab. The city shader uses a fixed geographic variation in its twilight threshold so the dawn transition is stable when the camera moves.
+Sebastian Lague’s *Geographical Adventures* pairs concentrated city lights with a softer glow across populated terrain. The lab’s left globe uses a satellite emission texture. The right uses Lague’s shipped light positions, brightness, and dusk variation on small instanced meshes. Both renders share the ground glow, camera, sunlight, scattering, and tone mapping. In Crescent, switch off Point bloom and toggle Terrain glow to see the land brighten around the Great Lakes. Both globes sample coarse night-map mips at global widths of 512 and 256 pixels and tint the ground using its grayscale albedo and land mask. Point bloom independently blurs the visible lamps on the right before the glass and tone-mapping passes. The point dataset is requested only in the lab. The city shader uses a fixed geographic variation in its twilight threshold so the dawn transition is stable when the camera moves.
 
 - [Creating city lights, episode 2](https://youtu.be/UXD97l7ZT0w?t=532) and [separating sky from depth-dependent haze](https://youtu.be/UXD97l7ZT0w?t=1802)
 - [City clustering and low-resolution terrain glow, episode 3](https://youtu.be/pNp4ug5F6To?t=795)

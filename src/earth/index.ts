@@ -1,4 +1,4 @@
-import { AerialPerspectiveEffect, PrecomputedTexturesLoader } from '@takram/three-atmosphere'
+import { PrecomputedTexturesLoader } from '@takram/three-atmosphere'
 import { Ellipsoid } from '@takram/three-geospatial'
 import {
   EffectComposer, EffectPass, RenderPass, ToneMappingEffect, ToneMappingMode
@@ -8,6 +8,9 @@ import {
   MathUtils, Mesh, PerspectiveCamera, RepeatWrapping, Scene,
   SRGBColorSpace, Texture, TextureLoader, Vector3, WebGLRenderer
 } from 'three'
+import { EarthAtmosphere } from './atmosphere'
+import { createClouds, type CloudSource } from './clouds'
+import { CityBloomPass } from './city-bloom'
 import { createComposite } from './composite'
 import { createEllipsoid, createPins, createSurface } from './surface'
 import { loadCityPoints } from './city-points'
@@ -15,6 +18,7 @@ import { loadCityPoints } from './city-points'
 export type EarthPose = 'crescent' | 'experience'
 export interface EarthOptions {
   initialPose: EarthPose
+  onCloudSource?: (source: CloudSource) => void
   onReady: () => void
   onError: () => void
   onComparisonState?: (state: 'loading' | 'ready' | 'error') => void
@@ -24,6 +28,10 @@ export interface EarthController {
   setPose: (pose: EarthPose) => void
   setSunOffset: (degrees: number) => void
   setCompare: (enabled: boolean) => void
+  setClouds: (enabled: boolean) => void
+  setWideAtmosphere: (enabled: boolean) => void
+  setCityBloom: (enabled: boolean) => void
+  setGroundGlow: (enabled: boolean) => void
   dispose: () => void
 }
 
@@ -51,9 +59,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const globe = new Mesh(createEllipsoid(), surface)
   const pins = createPins()
   scene.add(globe, pins)
-  const atmosphere = new AerialPerspectiveEffect(camera, {
-    sky: true, ground: false, sun: false, moon: false, sunLight: false, skyLight: false
-  })
+  const atmosphere = new EarthAtmosphere(camera)
   const composite = createComposite()
   const composer = new EffectComposer(renderer, { frameBufferType: HalfFloatType })
   composer.addPass(new RenderPass(scene, camera))
@@ -63,6 +69,10 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const textures = new Set<Texture>()
   const textureLoader = new TextureLoader()
   const anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy())
+  const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, anisotropy, invalidate,
+    source => options.onCloudSource?.(source))
+  scene.add(clouds.mesh)
+  pins.renderOrder = 3
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
   const east = new Vector3()
   const north = new Vector3()
@@ -78,6 +88,8 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   let transitionStart = 0
   let sunOffset = 0
   let compare = false
+  let bloomEnabled = true
+  let bloomPass: CityBloomPass | null = null
   let points: Awaited<ReturnType<typeof loadCityPoints>> | null = null
   let pointRequest: AbortController | null = null
   let comparisonReady = false
@@ -99,6 +111,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     cancelAnimationFrame(frame)
     window.clearTimeout(refineTimer)
     releasePoints()
+    clouds.dispose()
     resize.disconnect()
     document.removeEventListener('visibilitychange', invalidate)
     document.removeEventListener('scroll', invalidate, true)
@@ -183,6 +196,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
         else composite.lens.value.set(0, 0, 0, 0)
         surface.uniforms.textureCores.value = i === 0 ? 1 : 0
         if (points) points.visible = i === 1
+        if (bloomPass) bloomPass.enabled = i === 1 && bloomEnabled
         composer.render()
       }
       if (compare && points && !comparisonReady) {
@@ -193,6 +207,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
         canvas.dataset.earthReady = 'true'
         options.onReady()
       }
+      clouds.refresh(0.85 * Math.min(pane, h) * dpr)
       if ((startProgress !== targetProgress && t < 1) || (cubeReadyAt !== Infinity && surface.uniforms.cubeMix.value < 1)) invalidate()
     } catch (error) {
       console.error('Earth rendering failed.', error)
@@ -280,6 +295,11 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   }
 
   function releasePoints() {
+    if (bloomPass) {
+      composer.removePass(bloomPass)
+      bloomPass.dispose()
+      bloomPass = null
+    }
     pointRequest?.abort()
     pointRequest = null
     if (points) {
@@ -304,6 +324,11 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       }
       points = mesh
       scene.add(mesh)
+      if (atmosphere.transmittanceTexture) {
+        bloomPass = new CityBloomPass(camera, mesh, atmosphere.transmittanceTexture, clouds.uniforms)
+        // Surface → aerial perspective → optical bloom → glass and tone mapping.
+        composer.addPass(bloomPass, 2)
+      }
       invalidate()
     }).catch(error => {
       if (request.signal.aborted || disposed) return
@@ -348,6 +373,19 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       compare = enabled
       if (enabled) requestPoints()
       else releasePoints()
+      invalidate()
+    },
+    setClouds(enabled) { clouds.setEnabled(enabled) },
+    setWideAtmosphere(enabled) {
+      atmosphere.setWide(enabled)
+      invalidate()
+    },
+    setCityBloom(enabled) {
+      bloomEnabled = enabled
+      invalidate()
+    },
+    setGroundGlow(enabled) {
+      surface.uniforms.groundGlowStrength.value = enabled ? 1 : 0
       invalidate()
     },
     setSunOffset(degrees) {
