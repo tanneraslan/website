@@ -76,14 +76,16 @@ export class CityBloomPass extends Pass {
           float radiusPx = lamp.diameter * 0.25 * sourceSize.y * projectionMatrix[1][1] / clip.w;
           // Conserve projected area while filtering lights smaller than a pixel.
           // The Gaussian integral is 2*pi*sigma²; the lamp disc area is pi*r².
-          float sigma = max(0.72, radiusPx * 0.5);
-          energy = lamp.color * transmission(lamp.viewCos) * (0.5 * radiusPx*radiusPx / (sigma*sigma));
+          float cover = 0.0;
           if (cloudStrength > 0.0) {
             vec3 view = normalize(cameraPosition - lampCenter);
             vec3 shell = lampCenter + view * (8500.0 / max(lamp.viewCos, 0.08));
             vec3 normal = normalize(shell * vec3(1.0, 1.0, 1.0067395));
-            energy *= 1.0 - cloudOpacity(textureLod(cloudMap, cloudUV(normal), 0.0).r);
+            cover = cloudOpacity(textureLod(cloudMap, cloudUV(normal), 0.0).r);
           }
+          float sigma = max(0.72, radiusPx * 0.5) * (1.0 + 3.0 * cover);
+          float transmittedArea = (1.0 - nightCloudOpacity(cover)) * radiusPx * radiusPx;
+          energy = lamp.color * transmission(lamp.viewCos) * (0.5 * transmittedArea / (sigma * sigma));
           footprint = position.xy * 3.0;
           clip.xy += footprint * (2.0 * sigma / sourceSize) * clip.w;
           gl_Position = clip;

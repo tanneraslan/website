@@ -207,7 +207,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
         canvas.dataset.earthReady = 'true'
         options.onReady()
       }
-      clouds.refresh(0.85 * Math.min(pane, h) * dpr)
+      clouds.refresh()
       if ((startProgress !== targetProgress && t < 1) || (cubeReadyAt !== Infinity && surface.uniforms.cubeMix.value < 1)) invalidate()
     } catch (error) {
       console.error('Earth rendering failed.', error)

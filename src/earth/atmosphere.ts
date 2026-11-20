@@ -2,7 +2,7 @@ import { moonDirectionGLSL } from './night-lighting'
 import { AerialPerspectiveEffect } from '@takram/three-atmosphere'
 import { Uniform, type Camera } from 'three'
 
-const wideScale = 6
+const wideScale = 10
 
 export class EarthAtmosphere extends AerialPerspectiveEffect {
   private readonly limbScale = new Uniform(wideScale)

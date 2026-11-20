@@ -11,6 +11,10 @@ export const cloudCoverageGLSL = `
   }
   float cloudOpacity(float density) {
     return 0.72 * pow(max(density - 0.025, 0.0), 2.2);
+  }
+  float nightCloudOpacity(float opacity) {
+    // A bright direct lamp loses contrast faster than the softly lit cloud.
+    return 1.0 - pow(1.0 - opacity, 2.15);
   }`
 
 export type CloudSource = 'loading' | 'live' | 'snapshot' | 'unavailable'
@@ -53,9 +57,19 @@ export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, ni
           (0.055 * smoothstep(-0.09, 0.12, sun) + 0.90 * max(sun, 0.0));
         // Cloud coverage modulates both moonlit tops and the light returned
         // by low clouds over a city. Clear ocean receives no city contribution.
-        color += nightExposure(sun) * (vec3(0.032, 0.041, 0.073) * moonIllumination(n)
+        float darkness = nightExposure(sun);
+        float coverage = cloudOpacity(density);
+        color += darkness * (vec3(0.032, 0.041, 0.073) * moonIllumination(n)
           + vec3(0.16, 0.10, 0.060) * urbanHaze(nightMap, cloudUV(n)));
-        gl_FragColor = vec4(color, cloudOpacity(density));
+        if (darkness * coverage > 0.0) {
+          // Sample a wider geographic footprint for thicker clouds. The same
+          // satellite emission field illuminates the cloud deck in both panes.
+          float baseLod = log2(float(textureSize(nightMap, 0).x) / 2048.0);
+          float blurLod = max(baseLod + 0.8 + 3.0 * coverage, 0.0);
+          float flux = textureLod(nightMap, cloudUV(n), blurLod).r;
+          color += vec3(0.75, 0.47, 0.22) * flux * darkness;
+        }
+        gl_FragColor = vec4(color, mix(coverage, nightCloudOpacity(coverage), darkness));
       }`
   })
   const mesh = new Mesh(geometry, material)
@@ -65,7 +79,6 @@ export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, ni
   const interval = 3 * 60 * 60 * 1000
   let enabled = true, disposed = false, pending = false, hasLive = false
   let lastAttempt = -Infinity
-  let lastWidth = 0
   let refreshTimer = 0
 
   function updateVisibility() {
@@ -86,18 +99,16 @@ export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, ni
     updateVisibility()
   }
 
-  function refresh(diameter: number) {
-    const width = diameter >= 550 ? 2048 : 1024
-    if (!enabled || pending || disposed || (width <= lastWidth && Date.now() - lastAttempt < interval)) return
-    if (lastWidth === 0) {
+  function refresh() {
+    if (!enabled || pending || disposed || Date.now() - lastAttempt < interval) return
+    if (lastAttempt === -Infinity) {
       loader.load('/earth/data/clouds-snapshot.webp', texture => install(texture, 'snapshot'), undefined, () => {})
     }
     pending = true
-    lastWidth = width
     lastAttempt = Date.now()
     window.clearTimeout(refreshTimer)
     refreshTimer = window.setTimeout(invalidate, interval + 100)
-    loader.load(`https://clouds.matteason.co.uk/images/${width}x${width / 2}/clouds.jpg`, texture => {
+    loader.load('https://clouds.matteason.co.uk/images/2048x1024/clouds.jpg', texture => {
       pending = false
       install(texture, 'live')
     }, undefined, () => {
