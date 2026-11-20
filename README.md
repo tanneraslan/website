@@ -9,7 +9,7 @@ Use Node.js 22 or newer. Run `npm ci` and `npm run dev`. The Earth controls are 
 ## Editing the site
 
 - Edit the home introduction, featured photo and biography in `src/content/index.mdx`.
-- Edit experience and education in `src/content/resume.mdx`. A location with coordinates also supplies its globe pin and experience card.
+- Edit experience and education in `src/content/resume.mdx`. A location with coordinates also supplies its globe pin and experience card. Set the optional `logo` prop to an SVG in `public/logos/` (for example, `logo="/logos/michigan.svg"`) to display the same mark in both places.
 - Edit album details, coordinates, captions and Markdown images in `src/content/photos.mdx`. Put new originals in `public/`; album coordinates use latitude, then longitude.
 - Add posts in `src/content/posts/` and scores in `src/content/music/`. Copy the front matter from a nearby entry. File names become URLs and entries automatically appear in their lists and sitemap. Music entries reference audio and sheet music in `public/music/`.
 - Visit `/style-guide` for typography, semantic color, controls and glass examples. This maintainer reference is excluded from search indexing and public navigation.

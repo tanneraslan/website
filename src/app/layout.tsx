@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://tanneraslan.com'),
   title: { default: 'Tanner Aslan — Software Engineer', template: '%s · Tanner Aslan' },
   description,
+  icons: { icon: '/favicon.ico' },
   openGraph: { type: 'website', siteName: 'Tanner Aslan', description, images: ['/earth/social.jpg'] },
   twitter: { card: 'summary_large_image', images: ['/earth/social.jpg'] },
 }

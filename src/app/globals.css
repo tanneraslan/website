@@ -48,7 +48,8 @@ a { color: var(--link); text-underline-offset: .18em }
 .masthead { min-height: 74px; border-bottom: 1px solid var(--line); position: relative; z-index: 3 }
 .masthead [data-kind=brand] { display: inline-flex; align-items: center; gap: 9px; color: var(--ink) !important; font-size: 17px; font-weight: 620; letter-spacing: -.045em; text-decoration: none }
 .mobile-dock { display: none }
-.mark { width: 32px; height: 32px }
+.mark { display: inline-block; width: 30px; height: 24px; background: currentColor; mask: url("/logos/ta.png") center / contain no-repeat }
+.mobile-dock .mark { width: 23px; height: 20px }
 .masthead nav { display: flex; align-items: center; gap: 3px }
 .masthead nav a { padding: 8px 13px; border-radius: 20px !important; font-size: 14px; color: #b5b6bd !important; text-decoration: none; font-weight: 470; white-space: nowrap }
 .masthead nav a:is(:hover,[aria-current]) { color: var(--ink) !important; background: #ffffff10 }

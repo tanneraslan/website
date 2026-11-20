@@ -14,6 +14,7 @@ export interface MapPlace extends Coordinates {
   detail: string
   period: string
   action: string
+  logo?: string
   cover?: string
 }
 
@@ -109,7 +110,10 @@ export function GlobePlaces({ scene, pose, live }: {
     {active && <div ref={card} className="place-callout" style={{ left: cardLeft, width: cardWidth, top: cardTop }}>
       {active.place.cover && <img className="place-cover" src={active.place.cover} alt="" width={54} height={54}/>}
       <div>
-        <Link href={`#${active.place.id}`} data-place-title="" style={{ color: '#f5f5f7', fontSize: '1rem', fontWeight: 650 }} aria-label={`${active.place.action}: ${active.place.title}`}>{active.place.title}</Link>
+        <div className="place-title-row">
+          {active.place.logo && <img className="employer-mark" src={active.place.logo} alt="" width={22} height={22}/>}
+          <Link href={`#${active.place.id}`} data-place-title="" style={{ color: '#f5f5f7', fontSize: '1rem', fontWeight: 650 }} aria-label={`${active.place.action}: ${active.place.title}`}>{active.place.title}</Link>
+        </div>
         {active.place.detail && <span>{active.place.detail}</span>}
         <span>{active.place.location} · {active.place.period}</span>
       </div>

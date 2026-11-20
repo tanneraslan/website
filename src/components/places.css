@@ -18,6 +18,9 @@
 .resume-document hr { height:1px; border:0; background:currentColor; opacity:.15; margin:2rem 0; }
 .resume-entry { margin:1.6rem 0 .35rem; scroll-margin-top:85px; }
 .resume-entry h3 { font-size:1.15rem; line-height:1.25; letter-spacing:-.015em; }
+.resume-entry h3:has(.employer-mark), .place-title-row { display:flex; align-items:center; gap:.6rem; }
+.employer-mark { display:block; flex:none; object-fit:contain; }
+.place-title-row { gap:.45rem; }
 .resume-meta, .album-date { color:var(--muted,#aaaeb4); font-size:.9rem; }
 .resume-entry p { margin:.3rem 0; }
 .resume-document [data-place-link], .photo-document [data-place-link] { color:var(--link,#65aaff); }

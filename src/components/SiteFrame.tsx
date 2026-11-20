@@ -16,7 +16,7 @@ import { SunSweep } from './SunSweep'
 import { Icon } from './Icon'
 
 const nav = [
-  ['/', 'Overview', 'home'], ['/resume', 'Résumé', 'briefcase'], ['/posts', 'Blog', 'book'],
+  ['/', 'Overview', 'ta'], ['/resume', 'Résumé', 'briefcase'], ['/posts', 'Blog', 'book'],
   ['/photos', 'Photos', 'photos'], ['/music', 'Music', 'music'], ['/earth-lab', 'Earth lab', 'globe'],
 ] as const
 
@@ -27,11 +27,7 @@ type SceneState = 'loading' | 'live' | 'poster'
 type ComparisonState = 'loading' | 'ready' | 'error'
 
 function Mark() {
-  return <svg className="mark" aria-hidden="true" viewBox="0 0 44 44" fill="none">
-    <circle cx="22" cy="22" r="12.3" stroke="currentColor" strokeWidth="1.7"/>
-    <ellipse cx="22" cy="22" rx="20.3" ry="6.7" transform="rotate(-36 22 22)" stroke="currentColor" strokeWidth="1.7"/>
-    <circle cx="36.7" cy="8" r="2.5" fill="currentColor"/>
-  </svg>
+  return <span className="mark" aria-hidden="true" />
 }
 
 function Globe({ pose, compare, glass, scene, onState, onComparisonState, onCloudSource }: {
@@ -165,7 +161,7 @@ export function SiteFrame({ children }: { children: ReactNode }) {
     <div className="mobile-dock">
       <TabBar aria-label="Main navigation" layout="phone">
         <TabBar.Group>{nav.map(([href, text, icon]) =>
-          <TabBar.Link key={href} href={href} render={<NextLink href={href} />} isCurrent={isCurrentSection(path, href)} icon={<Icon name={icon} />}>
+          <TabBar.Link key={href} href={href} render={<NextLink href={href} />} isCurrent={isCurrentSection(path, href)} icon={icon === 'ta' ? <Mark/> : <Icon name={icon} />}>
             {text}
           </TabBar.Link>
         )}</TabBar.Group>
