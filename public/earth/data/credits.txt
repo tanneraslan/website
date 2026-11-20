@@ -1,0 +1,15 @@
+Day imagery: NASA Blue Marble Next Generation, July 2004, base map. Reto Stöckli, NASA Earth Observatory.
+https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/
+
+Night lights: NASA Earth Observatory, 2016 Black Marble grayscale global composite. Images by Joshua Stevens, using Suomi NPP VIIRS data from Miguel Román, NASA Goddard Space Flight Center.
+https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/
+
+Elevation: NOAA National Centers for Environmental Information (2022), ETOPO 2022 15 Arc-Second Global Relief Model. Ice surface elevation, global 60 arc-second derivative.
+https://doi.org/10.25921/fd45-gt74
+
+Ocean coverage: Natural Earth, 1:50m Ocean, version 5.1.2. Public domain.
+https://www.naturalearthdata.com/downloads/50m-physical-vectors/50m-ocean/
+
+All maps are equirectangular, north up, east right, with the global seam at 180 degrees. Global day and relief are 1024 x 512. Global night is 2048 x 1024. The 1152 x 704 North America patch covers 140 W to 50 W, 15 N to 70 N. Relief red and green encode east and north components of a tangent-space unit normal at sixfold vertical exaggeration (byte / 127.5 - 1). Blue stores ocean coverage. Day is sRGB; night and relief are sampled as data.
+
+To regenerate these derivatives, see scripts/bake-earth.py in the source repository.

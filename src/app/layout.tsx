@@ -1,69 +1,31 @@
-import localFont from 'next/font/local';
-import { Providers } from "./providers"; // Import the new wrapper
-import { getPageMap } from 'nextra/page-map';
-import { Head } from "nextra/components";
-import ClientLayout from "./client-layout";
+import type { Metadata, Viewport } from 'next'
+import localFont from 'next/font/local'
+import { SiteFrame } from '@/components/SiteFrame'
+import './globals.css'
 
-import "katex/dist/katex.min.css";
-import "./globals.css";
-
-const mono = localFont({
-  variable: "--font-mono",
+const sans = localFont({
   src: [
-    {
-      path: "./Supply-Regular.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./Supply-Bold.woff2",
-      weight: "700",
-      style: "normal",
-    },
+    { path: './Pangram-Regular.woff2', weight: '400' },
+    { path: './Pangram-Bold.woff2', weight: '700' },
   ],
-});
+  variable: '--sans',
+  display: 'swap',
+})
+const mono = localFont({ src: './Supply-Regular.woff2', variable: '--mono', display: 'swap' })
 
-const inter = localFont({
-  variable: "--font-sans",
-  src: [
-    {
-      path: "./Pangram-Regular.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./Pangram-Bold.woff2",
-      weight: "700",
-      style: "normal",
-    },
+const description = 'Tanner Aslan is a software engineer and graphics programmer studying computer science at the University of Michigan. Explore his work and an interactive Earth rendered from satellite imagery.'
 
-    {
-      path: "./Pangram-ExtraLight.woff2",
-      weight: "200",
-      style: "normal",
-    },
+export const metadata: Metadata = {
+  metadataBase: new URL('https://tanneraslan.com'),
+  title: { default: 'Tanner Aslan — Software Engineer', template: '%s · Tanner Aslan' },
+  description,
+  openGraph: { type: 'website', siteName: 'Tanner Aslan', description, images: ['/earth/social.jpg'] },
+  twitter: { card: 'summary_large_image', images: ['/earth/social.jpg'] },
+}
+export const viewport: Viewport = { themeColor: '#030507', colorScheme: 'dark' }
 
-    {
-      path: "./Pangram-Black.woff2",
-      weight: "900",
-      style: "normal",
-    },
-  ],
-});
-
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const pageMap = await getPageMap();
-
-  return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable} font-sans`}>
-      <Head />
-      <body>
-        <Providers>
-          <ClientLayout pageMap={pageMap}>
-            {children}
-          </ClientLayout>
-        </Providers>
-      </body>
-    </html>
-  );
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <body><SiteFrame>{children}</SiteFrame></body>
+  </html>
 }

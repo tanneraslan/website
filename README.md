@@ -1,38 +1,23 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Tanner Aslan
 
-## Getting Started
+A Next.js personal site with a Three.js Earth study. The homepage, résumé, and Earth lab are prerendered. The planet loads in a persistent client canvas after a lightweight WebP poster appears. The two camera poses share a Takram atmosphere and a WGS84 ellipsoid.
 
-First, run the development server:
+## Development
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-```
+Use Node.js 22 or newer. Run `npm ci` and `npm run dev`. The Earth controls are available on the homepage, and `/earth-lab` includes a sun-angle slider. Run `npm run typecheck` and `npm run build` before pushing. Vercel can use its Next.js preset with the repository root and the default build command.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Imagery
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+The browser requests a small global day map, city lights, packed relief and ocean coverage, and locally hosted atmospheric scattering tables. Switching to the daylight pose requests the sharper North America maps and blends them in. The renderer redraws on demand. With WebGL unavailable, the two controls switch between matching static views.
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+[Dataset credits](public/earth/data/credits.txt) · [Atmosphere and coordinate tools](https://github.com/takram-design-engineering/three-geospatial)
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+To rebuild the Earth surface maps, install NumPy, Pillow and Rasterio in a Python environment and run `python scripts/bake-earth.py --cache /tmp/earth-sources`. The prepared assets are checked in, so deployment does not need Python or upstream imagery services.
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+## Rendering references
 
-## Learn More
+Sebastian Lague’s *Geographical Adventures* pairs concentrated city lights with a softer glow across populated terrain. This site uses two filtered samples from the same satellite map at orbital scale, then applies Takram’s atmospheric attenuation and in-scattering. The city shader uses a fixed geographic variation in its twilight threshold so the dawn transition is stable when the camera moves.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+- [Creating city lights, episode 2](https://youtu.be/UXD97l7ZT0w?t=532) and [separating sky from depth-dependent haze](https://youtu.be/UXD97l7ZT0w?t=1802)
+- [City clustering and low-resolution terrain glow, episode 3](https://youtu.be/pNp4ug5F6To?t=795)
+- [Lague’s terrain shading](https://github.com/SebLague/Geographical-Adventures/blob/82fcda20bebb033c749b2339e9ce3a6e58007699/Assets/Scripts/Shaders/Game/Terrain.shader#L141-L164) and [instanced city lights](https://github.com/SebLague/Geographical-Adventures/blob/82fcda20bebb033c749b2339e9ce3a6e58007699/Assets/Scripts/Game/City%20Lights/CityLight.shader#L39-L62)

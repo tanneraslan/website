@@ -1,19 +1,16 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES2022",
     "lib": [
       "dom",
       "dom.iterable",
       "esnext"
     ],
-    "allowJs": true,
-    "skipLibCheck": true,
     "strict": true,
-    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "module": "ESNext",
-    /* Change moduleResolution to 'bundler' to support Nextra's exports */
+    "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -24,19 +21,18 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-    }
+      ]
+    },
+    "allowJs": true
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "mdx-components.tsx",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
