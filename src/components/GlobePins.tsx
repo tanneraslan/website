@@ -19,9 +19,10 @@ const collisionPadding = 11
 const cardInset = 8
 type CardBounds = { left: number; right: number; top: number; bottom: number }
 
-export function GlobePins({ pins, width, height, selected, onSelect }: {
-  pins: GlobePin[]; width: number; height: number; selected?: string | null; onSelect?: (id: string) => void
+export function GlobePins({ pins, width, height }: {
+  pins: GlobePin[]; width: number; height: number
 }) {
+  const [selected, setSelected] = useState<string | null>(null)
   const [cardBounds, setCardBounds] = useState<CardBounds | null>(null)
   const [cardHeight, setCardHeight] = useState(96)
   const [hovered, setHovered] = useState<string | null>(null)
@@ -177,9 +178,9 @@ export function GlobePins({ pins, width, height, selected, onSelect }: {
         {Math.hypot(left - x, top - y) > 5 && <span className="place-pin-dot" style={{ opacity: size }}/>}
         {reveal > 0 && (hovered ?? focused) === place.id &&
           <LiquidGlass className="home-location-label pin-label">{place.title}</LiquidGlass>}
-      </PhotoDestinationLink> : <Button size="sm" isIconOnly variant="borderless" data-place-pin=""
+      </PhotoDestinationLink> : <Button id={`job-pin-${place.id}`} size="sm" isIconOnly variant="borderless" data-place-pin=""
         aria-label={`${place.title}, ${place.location}`} aria-pressed={place.id === selected}
-        onClick={() => onSelect?.(place.id)}>
+        onClick={() => setSelected(current => current === place.id ? null : place.id)}>
         {place.logo
           ? <span className="employer-pin-badge"><img src={place.logo} alt="" width="22" height="22" draggable={false}/></span>
           : <span className="place-pin-dot" aria-hidden="true"/>}

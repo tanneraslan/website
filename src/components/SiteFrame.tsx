@@ -293,7 +293,7 @@ function FrameContents({ children }: { children: ReactNode }) {
             scene={scene} sky={sky} orbitViewport={orbitViewport} onState={setState} realSunlight={realSunlight}/>
           {state === 'live' && hasEarth && !flight && <OrbitControl scene={scene}/>}
           {path === '/' && <HomeLocation scene={scene} live={state === 'live'}/>}
-          {(hasMap || mapPhase) && <GlobePlaces overMap={Boolean(mapPhase)} scene={scene} pose={pose} live={state === 'live'} />}
+          {(hasMap || mapPhase) && <GlobePlaces key={isResume ? 'resume' : 'photos'} overMap={Boolean(mapPhase)} scene={scene} pose={pose} live={state === 'live'} />}
         </EarthFrame>
         {path === '/' && state !== 'poster' && <div className="sunlight-setting">
           <LiquidGlass decorative className="sunlight-glass"/>

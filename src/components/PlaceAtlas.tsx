@@ -23,9 +23,7 @@ export interface MapPlace extends Coordinates {
 
 interface Atlas {
   places: MapPlace[]
-  selected: string | null
   register: (place: MapPlace) => () => void
-  select: (id: string) => void
 }
 
 const AtlasContext = createContext<Atlas | null>(null)
@@ -34,13 +32,11 @@ const fullBadgeViewCosine = Math.cos(65 * Math.PI / 180)
 
 export function PlaceAtlasProvider({ children }: { children: ReactNode }) {
   const [places, setPlaces] = useState<MapPlace[]>([])
-  const [selection, select] = useState<string | null>(null)
   const register = useCallback((place: MapPlace) => {
     setPlaces(current => [...current.filter(other => other.id !== place.id), place])
     return () => { setPlaces(current => current.filter(other => other !== place)) }
   }, [])
-  const selected = places.some(place => place.id === selection) ? selection : places[0]?.id ?? null
-  const value = useMemo(() => ({ places, selected, select, register }), [places, selected, register])
+  const value = useMemo(() => ({ places, register }), [places, register])
   return <AtlasContext.Provider value={value}><PhotoFlightProvider>{children}</PhotoFlightProvider></AtlasContext.Provider>
 }
 
@@ -55,7 +51,14 @@ export function PlaceLink({ place }: { place: MapPlace }) {
     <span>{place.title}<small>{place.location}</small></span>
   </PhotoDestinationLink>
   return <Link href="#place-map" data-place-link="" aria-label={`Show ${place.location} on the globe`}
-    onClick={() => atlas?.select(place.id)}>{place.location}</Link>
+    onClick={event => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      const pin = document.getElementById(`job-pin-${place.id}`)
+      if (pin) {
+        event.preventDefault()
+        pin.focus()
+      }
+    }}>{place.location}</Link>
 }
 
 export function GlobePlaces({ scene, pose, live, overMap }: {
@@ -159,6 +162,6 @@ export function GlobePlaces({ scene, pose, live, overMap }: {
   }, [places, view, side, width, height])
   return <div id="place-map" ref={frame} className="place-map" style={{ '--orbit-extent': maxOrbitZoom } as CSSProperties}
     data-flying={flight ? true : undefined} role="group" aria-label="Locations on Earth" tabIndex={-1}>
-    <GlobePins pins={pins} width={width} height={height} selected={atlas?.selected} onSelect={atlas?.select}/>
+    <GlobePins pins={pins} width={width} height={height}/>
   </div>
 }
