@@ -61,7 +61,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const textures = new Set<Texture>()
   const textureLoader = new TextureLoader()
   const anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy())
-  const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, surface.uniforms.night, anisotropy, invalidate)
+  const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, surface.uniforms.night, surface.uniforms.elevation, anisotropy, invalidate)
   scene.add(clouds.mesh)
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
   const east = new Vector3()
@@ -256,7 +256,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     }
     if (diameter >= 690 && !highMapsRequested && renderer.capabilities.maxTextureSize >= 4096) {
       highMapsRequested = true
-      for (const name of ['night', 'relief']) {
+      for (const name of ['night', 'elevation']) {
         loadMap(name + '-detail').then(texture => {
           if (!disposed) replaceTexture(name, texture)
         }).catch(() => { /* Keep the base map if this optional refinement fails. */ })
@@ -287,16 +287,16 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     Object.assign(atmosphere, tables)
   })
   Promise.all([
-    loadMap('day', true), loadMap('night'), loadMap('relief'), loadMap('bathymetry'),
+    loadMap('day', true), loadMap('night'), loadMap('elevation'), loadMap('bathymetry'),
     loadMap('water-normal'), loadMap('wind'), atmosphereTextures, clouds.loadSnapshot(), cityPoints
-  ]).then(([day, night, relief, bathymetry, waterNormal, windField]) => {
+  ]).then(([day, night, elevation, bathymetry, waterNormal, windField]) => {
     if (disposed) return
     waterNormal.wrapT = RepeatWrapping
     surface.uniforms.waterNormal.value = waterNormal
     surface.uniforms.bathymetry.value = bathymetry
     wind = windField
     surface.uniforms.day.value = day
-    surface.uniforms.relief.value = relief
+    surface.uniforms.elevation.value = elevation
     surface.uniforms.night.value = night
     if (points && atmosphere.transmittanceTexture) {
       composer.addPass(new CityBloomPass(camera, points, atmosphere.transmittanceTexture, clouds.uniforms), 2)

@@ -1,4 +1,5 @@
 import type { EarthAtmosphere } from './atmosphere'
+import { bumpGLSL } from './bump'
 import { oceanGLSL } from './ocean'
 import { Geodetic } from '@takram/three-geospatial'
 import { nightLightingGLSL } from './night-lighting'
@@ -29,7 +30,7 @@ export function createSurface(atmosphere: EarthAtmosphere) {
     uniforms: {
       ...Object.fromEntries([...atmosphere.uniforms].filter(([key]) =>
         key === 'ATMOSPHERE' || key.endsWith('_texture') || key.endsWith('_TO_LUMINANCE'))),
-      day: { value: null }, night: { value: null }, relief: { value: null },
+      day: { value: null }, night: { value: null }, elevation: { value: null },
       dayCube: { value: null }, cubeMix: { value: 0 },
       bathymetry: { value: null }, waterNormal: { value: null }, oceanSeconds: { value: 0 },
       sunDirection: { value: new Vector3() }
@@ -41,7 +42,7 @@ export function createSurface(atmosphere: EarthAtmosphere) {
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
-      uniform sampler2D day, night, relief;
+      uniform sampler2D day, night, elevation;
       uniform samplerCube dayCube;
       uniform float cubeMix;
       uniform vec3 sunDirection;
@@ -49,6 +50,7 @@ export function createSurface(atmosphere: EarthAtmosphere) {
       ${cityTwilightGLSL}
       ${nightLightingGLSL}
       ${oceanGLSL}
+      ${bumpGLSL}
       void main() {
         // Geodetic normal = normalized position divided by squared ellipsoid radii.
         vec3 normal = normalize(surfacePosition * vec3(1.0, 1.0, 1.0067394967));
@@ -65,16 +67,19 @@ export function createSurface(atmosphere: EarthAtmosphere) {
         vec2 uvDy = vec2(dot(dy, east), dot(dy, north)) / scales;
         vec3 color = textureGrad(day, geoUV, uvDx, uvDy).rgb;
         if (cubeMix > 0.0) color = mix(color, texture(dayCube, normal).rgb, cubeMix);
-        vec3 material = textureGrad(relief, geoUV, uvDx, uvDy).rgb;
-        vec2 slope = (2.0 * material.rg - 1.0) * (1.0 - material.b);
-        vec3 terrainNormal = normalize(east * slope.x + north * slope.y +
-          normal * sqrt(max(0.001, 1.0 - dot(slope, slope))));
+        float oceanMask = textureGrad(elevation, geoUV, uvDx, uvDy).b;
+        BumpStencil stencil = bumpStencil(normal, east, north, float(textureSize(elevation, 0).x));
+        vec3 terrainNormal = normal;
+        if (oceanMask < 1.0) {
+          vec4 heights = bumpSamples(elevation, stencil, uvDx, uvDy);
+          terrainNormal = bumpNormal(normal, east, north, stencil, heights * (1.0 - oceanMask));
+        }
         // Preserve bright sea ice in the satellite imagery. The ocean mask
         // supplies fractional coastal coverage and the DEM supplies depth.
-        float openWater = material.b * (1.0 - smoothstep(0.16, 0.48, min(color.r,min(color.g,color.b))));
+        float openWater = oceanMask * (1.0 - smoothstep(0.16, 0.48, min(color.r,min(color.g,color.b))));
         float solarElevation = dot(normal, sunDirection);
         float diffuse = max(0.0, dot(terrainNormal, sunDirection));
-        vec3 radiance = color * (0.016 + 1.5 * diffuse);
+        vec3 radiance = color * (0.016 + 1.5 * diffuse * diffuse);
 
         vec3 view = normalize(cameraPosition - surfacePosition);
         // Fixed geographic footprints across base/refined night maps. Blend the
@@ -89,7 +94,7 @@ export function createSurface(atmosphere: EarthAtmosphere) {
         float groundValue = dot(color, vec3(0.2126, 0.7152, 0.0722));
         float nightWeight = nightExposure(solarElevation);
         float landReflectance = 0.012 + 0.070 * sqrt(groundValue);
-        float moon = moonIllumination(terrainNormal) * mix(landReflectance, 0.004, material.b);
+        float moon = moonIllumination(terrainNormal) * mix(landReflectance, 0.004, oceanMask);
         float airPath = 1.0 - max(dot(normal, view), 0.0);
         vec3 air = vec3(0.0025, 0.0037, 0.0090) * (1.0 + 0.6 * airPath);
         vec3 cityAir = vec3(0.052, 0.036, 0.026) * urbanHaze(night, geoUV) * (1.0 + airPath);
@@ -97,7 +102,7 @@ export function createSurface(atmosphere: EarthAtmosphere) {
 
         float nightRelief = pow(max(dot(normal, terrainNormal), 0.0), 3.0);
         float groundGlow = spill * (0.30 + pow(groundValue, 0.67))
-          * nightRelief * (1.0 - material.b);
+          * nightRelief * (1.0 - oceanMask);
         radiance += darkness * groundGlow * vec3(1.35, 0.64, 0.22);
         if (openWater > 0.001) {
           float encoded = textureGrad(bathymetry, geoUV, uvDx, uvDy).r;

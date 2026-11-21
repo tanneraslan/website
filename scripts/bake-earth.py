@@ -70,29 +70,15 @@ def bake_bathymetry(dem):
 
 def relief_map(dem, geometries, bounds, size):
     width, height = size
-    west, south, east, north = bounds
     elevation = dem.read(
         1,
         window=pixel_window(*bounds, transform=dem.transform),
         out_shape=(height, width),
         resampling=Resampling.average,
     )
-    # Take derivatives in metres on the tangent plane, with east and north
-    # independent of the Three.js camera or world convention.
-    longitude_step = (east - west) / width
-    latitude_step = (north - south) / height
-    latitudes = north - (np.arange(height) + 0.5) * latitude_step
-    metres_per_degree = 6371008.8 * np.pi / 180
-    dx = metres_per_degree * longitude_step * np.cos(np.deg2rad(latitudes))[:, None]
-    dy = metres_per_degree * latitude_step
-    elevation = np.maximum(elevation, 0)
-    if bounds == GLOBAL:
-        east_gradient = (np.roll(elevation, -1, axis=1) - np.roll(elevation, 1, axis=1)) / 2
-    else:
-        east_gradient = np.gradient(elevation, axis=1)
-    normal_east = -east_gradient / dx * 6
-    normal_north = np.gradient(elevation, axis=0) / dy * 6
-    length = np.sqrt(1 + normal_east**2 + normal_north**2)
+    # Store a scalar height for runtime finite-difference lighting. Linear
+    # encoding keeps interpolated heights and mip averages in elevation space.
+    height_channel = np.clip(elevation.astype("float32") / 8849.0, 0, 1) * 255
 
     # Rasterize at 2x resolution for antialiased coastlines in the blue channel.
     high_size = (width * 2, height * 2)
@@ -105,7 +91,7 @@ def relief_map(dem, geometries, bounds, size):
         dtype="uint8",
     )
     coverage = np.asarray(Image.fromarray(ocean).resize(size, Image.Resampling.BOX))
-    channels = (127.5 + 127.5 * normal_east / length, 127.5 + 127.5 * normal_north / length, coverage)
+    channels = (height_channel, height_channel, coverage)
     return Image.fromarray(np.rint(np.stack(channels, axis=-1)).astype("uint8"))
 
 
@@ -166,7 +152,7 @@ def bake_detail(cache, dem, ocean):
     with Image.open(cache / "night-3km.jpg") as night:
         color_crop(night, GLOBAL, (4096, 2048)).save(OUTPUT / "night-detail.webp", lossless=True, method=6)
     relief = relief_map(dem, ocean, GLOBAL, (4096, 2048))
-    relief.save(OUTPUT / "relief-detail.webp", lossless=True, method=6)
+    relief.save(OUTPUT / "elevation-detail.webp", lossless=True, method=6)
 
 
 def bake(cache):
@@ -177,7 +163,7 @@ def bake(cache):
         bake_bathymetry(dem)
         base_size = (1024, 512)
         color_crop(day, GLOBAL, base_size).save(OUTPUT / "day.webp", quality=85, method=6)
-        relief_map(dem, ocean, GLOBAL, base_size).save(OUTPUT / "relief.webp", lossless=True, method=6)
+        relief_map(dem, ocean, GLOBAL, base_size).save(OUTPUT / "elevation.webp", lossless=True, method=6)
         bake_detail(cache, dem, ocean)
     with Image.open(cache / "night.jpg") as night:
         color_crop(night.convert("L"), GLOBAL, (2048, 1024)).save(OUTPUT / "night.webp", lossless=True, method=6)
