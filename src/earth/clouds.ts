@@ -54,12 +54,12 @@ export function createClouds(geometry: BufferGeometry, sunDirection: Vector3, ni
         vec2 uvDx = vec2(dot(dx, east), dot(dx, north)) / scale;
         vec2 uvDy = vec2(dot(dy, east), dot(dy, north)) / scale;
         float density = textureGrad(cloudMap, uv, uvDx, uvDy).r;
-        float width = float(min(textureSize(cloudMap, 0).x, textureSize(elevation, 0).x));
+        float width = float(textureSize(cloudMap, 0).x);
         BumpStencil stencil = bumpStencil(n, east, north, width);
         if (density <= 0.25) discard;
         vec4 land = bumpSamples(elevation, stencil, uvDx, uvDy);
         vec4 clouds = smoothstep(vec4(-0.5), vec4(2.0), bumpSamples(cloudMap, stencil, uvDx, uvDy));
-        vec3 top = bumpNormal(n, east, north, stencil, mix(land, max(land, clouds), 0.5));
+        vec3 top = bumpNormal(n, east, north, stencil, mix(land, max(land, clouds), 0.75));
         float sunlight = max(dot(top, sunDirection), 0.0);
         float sun = dot(n, sunDirection);
         float daylight = smoothstep(-0.06, 0.16, sun);

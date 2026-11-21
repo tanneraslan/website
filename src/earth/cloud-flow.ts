@@ -1,5 +1,5 @@
 import {
-  NearestFilter, Mesh, NoBlending, OrthographicCamera, PlaneGeometry, RedFormat, RepeatWrapping, Scene,
+  NearestFilter, Mesh, NoBlending, OrthographicCamera, PlaneGeometry, RedFormat, RGBAFormat, RepeatWrapping, Scene,
   ShaderMaterial, LinearMipmapLinearFilter, WebGLRenderTarget, type Texture, type WebGLRenderer
 } from 'three'
 
@@ -13,7 +13,7 @@ export function createCloudFlow(anisotropy: number) {
   target.texture.anisotropy = anisotropy
   const particles = createCloudParticles()
   const mass = new WebGLRenderTarget(particleSide, particleSide, {
-    format: RedFormat, depthBuffer: false, minFilter: NearestFilter, magFilter: NearestFilter
+    format: RGBAFormat, depthBuffer: false, minFilter: NearestFilter, magFilter: NearestFilter
   })
   const material = new ShaderMaterial({
     blending: NoBlending, depthTest: false, depthWrite: false,
@@ -25,18 +25,19 @@ export function createCloudFlow(anisotropy: number) {
     fragmentShader: `
       uniform sampler2D source;
       ${particleSeedGLSL}
-      float emission(sampler2D image, vec2 uv) {
-        // Average the map over a particle spacing to avoid undersampling narrow cloud bands.
-        float spacing = sqrt(4.0*pi) / float(side);
-        float latitude = (uv.y - 0.5) * pi;
-        return textureGrad(image, uv, vec2(spacing/(2.0*pi*max(cos(latitude), 0.1)), 0.0),
-          vec2(0.0, spacing/pi)).r;
-      }
       void main() {
         ivec2 cell = ivec2(gl_FragCoord.xy);
         vec2 uv = seedUV(cell.y * side + cell.x);
-        float density = emission(source, uv);
-        gl_FragColor = vec4(density, 0.0, 0.0, 1.0);
+        float spacing = sqrt(4.0*pi) / float(side);
+        float latitude = (uv.y - 0.5) * pi;
+        vec2 east = vec2(spacing / (2.0*pi*max(cos(latitude), 0.01)), 0.0);
+        vec2 north = vec2(0.0, spacing/pi);
+        float density = textureGrad(source, uv, east, north).r;
+        vec2 gradient = vec2(
+          textureGrad(source, uv + 0.5*east, east, north).r - textureGrad(source, uv - 0.5*east, east, north).r,
+          textureGrad(source, uv + 0.5*north, east, north).r - textureGrad(source, uv - 0.5*north, east, north).r
+        );
+        gl_FragColor = vec4(density, 0.5 + 0.5*gradient, 1.0);
       }`
   })
   const geometry = new PlaneGeometry(2, 2)
@@ -51,7 +52,7 @@ export function createCloudFlow(anisotropy: number) {
       const lastTarget = renderer.getRenderTarget()
       try {
         target.setSize(width, width / 2)
-        // One scalar per emitter. Only the particle sprites draw into the coverage map.
+        // Cache each emitter’s density and tangent gradient once per source map.
         if (u.source.value !== source) {
           u.source.value = source
           renderer.setRenderTarget(mass)
