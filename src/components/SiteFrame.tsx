@@ -8,8 +8,8 @@ import { TabBar } from '@lenso/ui/tab-bar'
 import { ThemeScope } from '@lenso/ui'
 import { SiteLink } from './SiteLink'
 import { GlobePlaces, PlaceAtlasProvider } from './PlaceAtlas'
-import { usePathname, useRouter } from 'next/navigation'
-import { startTransition, useEffect, useOptimistic, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { usePathname } from 'next/navigation'
+import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import type { EarthPose, EarthController } from '@/earth'
 import { LiquidGlass } from './LiquidGlass'
 import { cloudFadeDuration, frameTravel, FlightClouds, usePhotoFlight } from './PhotoFlight'
@@ -31,7 +31,23 @@ function Mark() {
   return <img className="mark" src="/logos/headshot.png" width="32" height="32" alt="" />
 }
 
-function Globe({ pose, scene, sky, onState, realSunlight }: {
+const MobileDock = memo(function MobileDock({ path, scene }: { path: string; scene: RefObject<EarthController | null> }) {
+  return (
+    <div className="mobile-dock" onPointerDownCapture={() => scene.current?.yieldToNavigation()}>
+      <TabBar aria-label="Main navigation" layout="phone" elastic={false}>
+        <TabBar.Group>{nav.map(([href, text, icon]) =>
+          <TabBar.Link key={href} href={href} isCurrent={isCurrentSection(path, href)} icon={<Icon name={icon} />}
+            render={<NextLink href={href} prefetch/>}>
+            {text}
+          </TabBar.Link>
+        )}</TabBar.Group>
+      </TabBar>
+    </div>
+  )
+})
+
+function Globe({ pose, scene, sky, onState, realSunlight, visible }: {
+  visible: boolean
   realSunlight: boolean
   pose: EarthPose
   scene: RefObject<EarthController | null>
@@ -53,9 +69,10 @@ function Globe({ pose, scene, sky, onState, realSunlight }: {
     return () => clearTimeout(timeout)
   }, [live])
   useEffect(() => {
+    if (!visible) return
     latestPose.current = pose
     scene.current?.setPose(pose)
-  }, [pose, scene])
+  }, [pose, scene, visible])
   useEffect(() => {
     const parent = surface.current
     const backdrop = sky.current
@@ -85,10 +102,13 @@ function Globe({ pose, scene, sky, onState, realSunlight }: {
         controller.setPose(latestPose.current)
       } catch { fail() }
     }
-    const frame = requestAnimationFrame(() => { void start() })
+    // Let the destination and its poster paint before creating a WebGL context.
+    let timer = 0
+    const frame = requestAnimationFrame(() => { timer = window.setTimeout(start, 0) })
     return () => {
       stopped = true
       cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
       scene.current = null
       controller?.dispose()
       canvas.remove()
@@ -156,8 +176,6 @@ function FrameContents({ children }: { children: ReactNode }) {
   }
   const flight = usePhotoFlight()?.flight
   const path = usePathname()
-  const router = useRouter()
-  const [mobilePath, setMobilePath] = useOptimistic(path)
   const observatory = useRef<HTMLElement>(null)
   const headerSlot = useRef<HTMLDivElement>(null)
   const [floating, setFloating] = useState(false)
@@ -184,9 +202,19 @@ function FrameContents({ children }: { children: ReactNode }) {
   const mapPhase = flight && path.startsWith('/photos/') && (path === flight.origin || path === flight.href)
     ? path === flight.origin ? 'departing' : flight.revealAt === null ? 'covered' : 'arriving'
     : undefined
+  const showEarth = hasEarth || Boolean(mapPhase)
+  // Reuse the GPU resources through a quick mobile tab switch. A hidden
+  // canvas is paused by the renderer's existing intersection observer.
+  const keepEarth = showEarth || state === 'live'
+  useEffect(() => {
+    if (showEarth || state !== 'live') return
+    const delay = matchMedia('(max-width: 760px), (pointer: coarse)').matches ? 15000 : 0
+    const timer = window.setTimeout(() => setState('loading'), delay)
+    return () => window.clearTimeout(timer)
+  }, [showEarth, state])
   const pose = hasMap || mapPhase ? 'experience' : 'crescent'
   return <div className={`site ${isResume ? 'resume atlas' : isPhotos ? 'photos atlas' : path === '/' ? 'home' : 'reading'}`}>
-    {(hasEarth || mapPhase) && <canvas ref={sky} className="star-sky" aria-hidden="true"/>}
+    {keepEarth && <canvas ref={sky} className="star-sky" style={showEarth ? undefined : { display: 'none' }} aria-hidden="true"/>}
     <a className="skip-link" href="#content">Skip to content</a>
     <div className="masthead-slot" ref={headerSlot}>
     <header className="masthead" data-floating={floating || undefined}>
@@ -197,30 +225,15 @@ function FrameContents({ children }: { children: ReactNode }) {
       )}</nav>
     </header>
     </div>
-    <div className="mobile-dock">
-      <TabBar aria-label="Main navigation" layout="phone">
-        <TabBar.Group>{nav.map(([href, text, icon]) =>
-          <TabBar.Link key={href} href={href} isCurrent={isCurrentSection(mobilePath, href)} icon={<Icon name={icon} />}
-            render={<NextLink href={href} onNavigate={event => {
-              event.preventDefault()
-              startTransition(() => {
-                setMobilePath(href)
-                router.push(href)
-              })
-            }}/>}>
-            {text}
-          </TabBar.Link>
-        )}</TabBar.Group>
-      </TabBar>
-    </div>
+    <MobileDock path={path} scene={scene}/>
     <main id="content" className="composition">
       <div className="page-copy">{children}</div>
-      {(hasEarth || mapPhase) && <section ref={observatory} className="observatory" aria-label="Earth viewer"
+      {keepEarth && <section hidden={!showEarth} ref={observatory} className="observatory" aria-label="Earth viewer"
         data-map-clouds={mapPhase} aria-hidden={mapPhase ? true : undefined}
         style={mapPhase ? { '--cloud-fade-duration': cloudFadeDuration + 'ms', '--cloud-fade-delay': (frameTravel + 50) + 'ms' } as CSSProperties : undefined}>
         <div className="earth-frame">
           {isPhotos && <FlightClouds/>}
-          <Globe pose={pose} scene={scene} sky={sky} onState={setState} realSunlight={realSunlight}/>
+          <Globe visible={showEarth} pose={pose} scene={scene} sky={sky} onState={setState} realSunlight={realSunlight}/>
           {state === 'live' && hasEarth && !flight && <OrbitControl scene={scene}/>}
           {path === '/' && <HomeLocation scene={scene} live={state === 'live'}/>}
           {(hasMap || mapPhase) && <GlobePlaces overMap={Boolean(mapPhase)} scene={scene} pose={pose} live={state === 'live'} />}

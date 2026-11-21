@@ -1,9 +1,10 @@
 'use client'
 
-import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import './liquid-glass.css'
 
 const displacementScale = 64
+const lensMaps = new Map<string, string>()
 
 // Red and green encode the horizontal and vertical offsets used by feDisplacementMap.
 // The center magnifies gently. The curved bezel pulls in a wider strip of the scene.
@@ -98,7 +99,25 @@ export function LiquidGlass({ children, className, style, onHeightChange, backdr
 }
 
 function GlassLens({ left, top, width, height, radius, id }: LensBounds & { id: string }) {
-  const map = useMemo(() => width && height ? lensMap(width, height, radius) : undefined, [width, height, radius])
+  const key = width + ':' + height + ':' + radius
+  const [generated, setGenerated] = useState<{ key: string; map: string }>()
+  const map = generated?.key === key ? generated.map : lensMaps.get(key)
+  useEffect(() => {
+    if (!width || !height || map) return
+    // Rasterize after the glass and destination content have painted. Identical
+    // controls reuse the bitmap even when their position or route changes.
+    let timer = 0
+    const frame = requestAnimationFrame(() => {
+      timer = window.setTimeout(() => {
+        const bitmap = lensMaps.get(key) ?? lensMap(width, height, radius)
+        if (!bitmap) return
+        if (lensMaps.size >= 12) lensMaps.delete(lensMaps.keys().next().value!)
+        lensMaps.set(key, bitmap)
+        setGenerated({ key, map: bitmap })
+      }, 0)
+    })
+    return () => { cancelAnimationFrame(frame); window.clearTimeout(timer) }
+  }, [width, height, radius, key, map])
   if (!map) return null
   const bounds = { x: left, y: top, width, height }
   return <svg aria-hidden="true" width="0" height="0" className="globe-glass-filter">

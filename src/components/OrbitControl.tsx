@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 import type { EarthController } from '@/earth'
 import { globeDiameterFraction } from '@/earth/locations'
 
-type Contact = { x: number; y: number; time: number; canRotate: boolean }
+type Contact = { x: number; y: number; time: number; intent: 'pending' | 'rotate' | 'ignore' }
 
 export function OrbitControl({ scene }: { scene: RefObject<EarthController | null> }) {
   const control = useRef<HTMLDivElement>(null)
@@ -12,6 +12,15 @@ export function OrbitControl({ scene }: { scene: RefObject<EarthController | nul
     const earth = scene.current
     if (!disk || !frame || !earth) return
 
+    const measureScroll = () => {
+      const page = document.scrollingElement
+      frame.toggleAttribute('data-page-scroll', Boolean(page && page.scrollHeight > page.clientHeight + 1))
+    }
+    // touch-action must be set before the first contact for native scrolling.
+    const size = new ResizeObserver(measureScroll)
+    size.observe(document.body)
+    size.observe(document.documentElement)
+    measureScroll()
     const contacts = new Map<number, Contact>()
     let pinchDistance = 0
     let longitudeSpeed = 0
@@ -35,7 +44,9 @@ export function OrbitControl({ scene }: { scene: RefObject<EarthController | nul
     const down = (event: PointerEvent) => {
       if (event.button !== 0 || !overGlobe(event.target) || contacts.size >= 2) return
       if (event.pointerType !== 'touch' && event.target !== disk) return
-      contacts.set(event.pointerId, { x: event.clientX, y: event.clientY, time: event.timeStamp, canRotate: event.target === disk })
+      const intent = event.target !== disk ? 'ignore'
+        : event.pointerType === 'touch' && frame.hasAttribute('data-page-scroll') ? 'pending' : 'rotate'
+      contacts.set(event.pointerId, { x: event.clientX, y: event.clientY, time: event.timeStamp, intent })
       longitudeSpeed = latitudeSpeed = 0
       earth.stopCoasting()
       if (contacts.size === 2) {
@@ -43,20 +54,25 @@ export function OrbitControl({ scene }: { scene: RefObject<EarthController | nul
         pinchDistance = span
         earth.zoomBy(1, midpoint)
         for (const id of contacts.keys()) disk.setPointerCapture(id)
-      } else if (event.target === disk) disk.setPointerCapture(event.pointerId)
+      } else if (intent === 'rotate') disk.setPointerCapture(event.pointerId)
     }
     const move = (event: PointerEvent) => {
       const contact = contacts.get(event.pointerId)
       if (!contact) return
       const dx = contact.x - event.clientX
       const dy = event.clientY - contact.y
+      if (contacts.size === 1 && contact.intent === 'pending') {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return
+        contact.intent = Math.abs(dx) > Math.abs(dy) ? 'rotate' : 'ignore'
+        if (contact.intent === 'rotate') disk.setPointerCapture(event.pointerId)
+      }
       const dt = Math.max(0.001, (event.timeStamp - contact.time) / 1000)
       Object.assign(contact, { x: event.clientX, y: event.clientY, time: event.timeStamp })
       if (contacts.size === 2) {
         const { span, midpoint } = pinch()
         if (pinchDistance > 1 && span > 1) earth.zoomBy(span / pinchDistance, midpoint, true)
         pinchDistance = span
-      } else if (contact.canRotate && (dx || dy)) {
+      } else if (contact.intent === 'rotate' && (dx || dy)) {
         const scale = 2.4 / (disk.clientWidth * shownZoom)
         const longitude = dx * scale, latitude = dy * scale
         earth.rotateBy(longitude, latitude)
@@ -71,10 +87,10 @@ export function OrbitControl({ scene }: { scene: RefObject<EarthController | nul
       contacts.delete(event.pointerId)
       if (contacts.size) {
         const [remaining] = contacts.values()
-        remaining.canRotate = true
+        remaining.intent = 'rotate'
         remaining.time = event.timeStamp
         longitudeSpeed = latitudeSpeed = 0
-      } else if (contact.canRotate && event.type === 'pointerup') {
+      } else if (contact.intent === 'rotate' && event.type === 'pointerup') {
         const idleMs = Math.max(0, event.timeStamp - contact.time)
         if (idleMs < 150) {
           const weight = Math.exp(-idleMs / 65)
@@ -101,6 +117,8 @@ export function OrbitControl({ scene }: { scene: RefObject<EarthController | nul
     frame.addEventListener('pointercancel', end)
     frame.addEventListener('lostpointercapture', lost)
     return () => {
+      size.disconnect()
+      frame.removeAttribute('data-page-scroll')
       unsubscribe()
       frame.removeEventListener('wheel', wheel)
       frame.removeEventListener('pointerdown', down)

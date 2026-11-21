@@ -31,6 +31,7 @@ type CameraFlight = { start: number, duration: number, returning: boolean, relea
 
 export interface EarthController {
   flyToPlace: (place: Coordinates | null, timing?: CameraFlight) => void
+  yieldToNavigation: () => void
   observeOrbit: (listener: (view: OrbitView) => void) => () => void
   setRealSunlight: (enabled: boolean) => void
   zoomBy: (factor: number, focus?: { x: number; y: number }, continuePinch?: boolean) => boolean
@@ -145,6 +146,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   let motionSeconds = 0
   let lastDraw = 0
   let animationTimer = 0
+  let navigationTimer = 0
   let inView = true
   let ready = false
   let disposed = false
@@ -159,6 +161,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     globeFrame?.style.removeProperty('--orbit-pan-y')
     cancelAnimationFrame(frame)
     window.clearTimeout(refineTimer)
+    window.clearTimeout(navigationTimer)
     pointRequest.abort()
     if (points) {
       scene.remove(points)
@@ -451,7 +454,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   }
 
   function invalidate() {
-    if (frame === 0 && ready && !disposed && !document.hidden) frame = requestAnimationFrame(draw)
+    if (frame === 0 && !navigationTimer && ready && !disposed && !document.hidden) frame = requestAnimationFrame(draw)
   }
   const visibility = new IntersectionObserver(([entry]) => {
     inView = entry.isIntersecting
@@ -601,6 +604,18 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       if (!flight) camera.clearViewOffset()
       width = 0
       invalidate()
+    },
+    yieldToNavigation() {
+      // Keep the last frame on screen while the dock and destination paint.
+      // Resume even when a press is canceled or stays on the current tab.
+      cancelAnimationFrame(frame)
+      frame = 0
+      window.clearTimeout(animationTimer)
+      window.clearTimeout(navigationTimer)
+      navigationTimer = window.setTimeout(() => {
+        navigationTimer = 0
+        if (inView) invalidate()
+      }, 150)
     },
     observeOrbit(listener) {
       orbitListeners.add(listener)

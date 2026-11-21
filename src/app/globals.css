@@ -147,8 +147,9 @@ a { color: var(--link); text-underline-offset: .18em }
 .earth-frame:not(:has(.flight-viewport)) > :is(.globe, .place-map, .home-location, .orbit-control-clip) {
   margin-left: var(--orbit-pan-x, 0%); margin-top: var(--orbit-pan-y, 0%);
 }
-.orbit-control { position: absolute; border-radius: 50%; pointer-events: auto; cursor: grab; touch-action: none; user-select: none; }
-.earth-frame:has(.orbit-control) [data-place-pin] { touch-action: none; }
+.orbit-control { position: absolute; border-radius: 50%; pointer-events: auto; cursor: grab; touch-action: var(--orbit-touch, none); user-select: none; }
+/* Pin buttons also participate in globe gestures. Override the UI kit's manipulation default. */
+.earth-frame:has(.orbit-control) [data-place-pin] { touch-action: var(--orbit-touch, none) !important; }
 .sunlight-setting {
   position: absolute; z-index: 3; right: 10%; bottom: 6%;
   width: max-content; border-radius: 99px;
@@ -163,6 +164,8 @@ a { color: var(--link); text-underline-offset: .18em }
   font: 550 .875rem/1.2 var(--sans); white-space: nowrap;
 }
 .sunlight-setting:has(:focus-visible) { outline: 2px solid var(--link); outline-offset: 3px; }
+.earth-frame[data-page-scroll] { --orbit-touch: pan-y; }
+.observatory[hidden], .star-sky[hidden] { display: none; }
 .orbit-control:active { cursor: grabbing; }
 .orbit-control:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
 .planet-poster, .canvas-host { transition: opacity .20s ease-in-out }
