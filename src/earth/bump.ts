@@ -24,8 +24,7 @@ export const bumpGLSL = `
       textureGrad(field, s.south, dx, dy).r, textureGrad(field, s.north, dx, dy).r);
   }
 
-  vec3 bumpNormal(vec3 n, vec3 east, vec3 north, BumpStencil s, vec4 heights) {
-    // Reference bump amplitude is 0.01 on a sphere of radius 2.
-    return normalize(n - (0.005 / s.diameter) *
+  vec3 bumpNormal(vec3 n, vec3 east, vec3 north, BumpStencil s, vec4 heights, float heightScale) {
+    return normalize(n - (heightScale / s.diameter) *
       (east * (heights.y - heights.x) + north * (heights.w - heights.z)));
   }`

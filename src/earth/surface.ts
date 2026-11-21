@@ -69,10 +69,13 @@ export function createSurface(atmosphere: EarthAtmosphere) {
         if (cubeMix > 0.0) color = mix(color, texture(dayCube, normal).rgb, cubeMix);
         float oceanMask = textureGrad(elevation, geoUV, uvDx, uvDy).b;
         BumpStencil stencil = bumpStencil(normal, east, north, float(textureSize(elevation, 0).x));
+        // Heights are stored as a fraction of 8,849 m. Express them in Earth
+        // radii before amplifying land slopes for the orbital view.
+        const float terrainHeightScale = 14.0 * 8849.0 / 6371008.8;
         vec3 terrainNormal = normal;
         if (oceanMask < 1.0) {
           vec4 heights = bumpSamples(elevation, stencil, uvDx, uvDy);
-          terrainNormal = bumpNormal(normal, east, north, stencil, heights * (1.0 - oceanMask));
+          terrainNormal = bumpNormal(normal, east, north, stencil, heights * (1.0 - oceanMask), terrainHeightScale);
         }
         // Preserve bright sea ice in the satellite imagery. The ocean mask
         // supplies fractional coastal coverage and the DEM supplies depth.
