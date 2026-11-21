@@ -92,8 +92,7 @@ function Credits() {
       <SiteLink href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/">Day surface · NASA Blue Marble</SiteLink>
       <SiteLink href="https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/">City lights · NASA Black Marble</SiteLink>
       <SiteLink href="https://www.ncei.noaa.gov/products/etopo-global-relief-model">Elevation · NOAA ETOPO</SiteLink>
-      <SiteLink href="https://github.com/matteason/live-cloud-maps">Clouds · Matt Eason</SiteLink>
-      <span>Contains modified EUMETSAT data</span>
+      <SiteLink href="https://github.com/jsulpis/realtime-planet-shader/blob/main/src/pages/earth.astro">Cloud coverage · NASA Blue Marble</SiteLink>
       <SiteLink href="https://github.com/SebLague/Geographical-Adventures">City points · Sebastian Lague</SiteLink>
       <SiteLink href="/earth/data/credits.txt">Full source credits</SiteLink>
     </div></Disclosure.Content>

@@ -83,7 +83,7 @@ export class CityBloomPass extends Pass {
             vec3 normal = normalize(shell * vec3(1.0, 1.0, 1.0067395));
             vec2 cloudCoord = cloudUV(normal);
             float density = textureLod(cloudMap, cloudCoord, 0.0).r;
-            cover = cloudOpacity(density, dot(normal, view));
+            cover = cloudOpacity(density);
           }
           float sigma = max(0.72, radiusPx * 0.5) * (1.0 + 3.0 * cover);
           float transmittedArea = (1.0 - nightCloudOpacity(cover)) * radiusPx * radiusPx;

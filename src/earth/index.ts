@@ -61,7 +61,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const textures = new Set<Texture>()
   const textureLoader = new TextureLoader()
   const anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy())
-  const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, surface.uniforms.night, surface.uniforms.elevation, anisotropy, invalidate)
+  const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, surface.uniforms.night, surface.uniforms.elevation, anisotropy)
   scene.add(clouds.mesh)
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
   const east = new Vector3()
@@ -175,7 +175,6 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
         canvas.dataset.earthReady = 'true'
         options.onReady()
       }
-      clouds.refresh()
       if ((startProgress !== targetProgress && t < 1) || (cubeReadyAt !== Infinity && surface.uniforms.cubeMix.value < 1)) invalidate()
       window.clearTimeout(animationTimer)
       if (!reducedMotion.matches) animationTimer = window.setTimeout(invalidate, 1000 / 30)
@@ -288,7 +287,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   })
   Promise.all([
     loadMap('day', true), loadMap('night'), loadMap('elevation'), loadMap('bathymetry'),
-    loadMap('water-normal'), loadMap('wind'), atmosphereTextures, clouds.loadSnapshot(), cityPoints
+    loadMap('water-normal'), loadMap('wind'), atmosphereTextures, clouds.loadCoverage(), cityPoints
   ]).then(([day, night, elevation, bathymetry, waterNormal, windField]) => {
     if (disposed) return
     waterNormal.wrapT = RepeatWrapping
