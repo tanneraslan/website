@@ -1,10 +1,11 @@
 'use client'
 
-import { Button } from '@lenso/ui/button'
+import { PhotoDestinationLink, PhotoFlightProvider, cloudFadeDuration, frameTravel, globeFlightDuration, mapFlightDuration, returnOrbitTail, usePhotoFlight } from './PhotoFlight'
 import { Link } from '@lenso/ui/link'
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { projectPlace, type Coordinates } from '@/earth/locations'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { flightCloudOpacity, globeDiameterFraction, maxOrbitZoom, orbitAngles, projectPlace, type Coordinates } from '@/earth/locations'
 import type { EarthController, EarthPose } from '@/earth'
+import { GlobePins, type GlobePin } from './GlobePins'
 import './places.css'
 
 export interface MapPlace extends Coordinates {
@@ -15,6 +16,8 @@ export interface MapPlace extends Coordinates {
   period: string
   action: string
   logo?: string
+  href?: string
+  pinImage?: string
   cover?: string
 }
 
@@ -26,6 +29,8 @@ interface Atlas {
 }
 
 const AtlasContext = createContext<Atlas | null>(null)
+const minBadgeViewCosine = Math.cos(75 * Math.PI / 180)
+const fullBadgeViewCosine = Math.cos(65 * Math.PI / 180)
 
 export function PlaceAtlasProvider({ children }: { children: ReactNode }) {
   const [places, setPlaces] = useState<MapPlace[]>([])
@@ -36,7 +41,7 @@ export function PlaceAtlasProvider({ children }: { children: ReactNode }) {
   }, [])
   const selected = places.some(place => place.id === selection) ? selection : places[0]?.id ?? null
   const value = useMemo(() => ({ places, selected, select, register }), [places, selected, register])
-  return <AtlasContext.Provider value={value}>{children}</AtlasContext.Provider>
+  return <AtlasContext.Provider value={value}><PhotoFlightProvider>{children}</PhotoFlightProvider></AtlasContext.Provider>
 }
 
 // This link doubles as the map registration. The page's editorial metadata is
@@ -45,78 +50,115 @@ export function PlaceLink({ place }: { place: MapPlace }) {
   const atlas = useContext(AtlasContext)
   const register = atlas?.register
   useEffect(() => register?.(place), [place, register])
+  if (place.href) return <PhotoDestinationLink place={{ ...place, href: place.href }}>
+    {place.pinImage && <img src={place.pinImage} width="36" height="36" alt="" loading="lazy"/>}
+    <span>{place.title}<small>{place.location}</small></span>
+  </PhotoDestinationLink>
   return <Link href="#place-map" data-place-link="" aria-label={`Show ${place.location} on the globe`}
     onClick={() => atlas?.select(place.id)}>{place.location}</Link>
 }
 
-export function GlobePlaces({ scene, pose, live }: {
+export function GlobePlaces({ scene, pose, live, overMap }: {
   scene: RefObject<EarthController | null>
   pose: EarthPose
   live: boolean
+  overMap: boolean
 }) {
   const atlas = useContext(AtlasContext)
+  const trip = usePhotoFlight()
+  const flight = trip?.flight
+  const arrive = trip?.arrive
+  const mapCamera = trip?.mapCamera
   const frame = useRef<HTMLDivElement>(null)
-  const card = useRef<HTMLDivElement>(null)
-  const [cardHeight, setCardHeight] = useState(96)
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
-  const [progress, setProgress] = useState(pose === 'experience' ? 1 : 0)
+  const returning = flight?.href === '/photos'
+  useLayoutEffect(() => {
+    if (overMap || !returning || flight?.revealAt !== null) return
+    // A cold WebGL context can take longer than the flight. The geographic
+    // poster follows the same clock until the first live frame is available.
+    let active = true
+    const poster = frame.current?.parentElement?.querySelector<HTMLImageElement>('.planet-poster')
+    const ready = () => { if (active) arrive?.('/photos') }
+    if (live || !poster) ready()
+    else void poster.decode().then(ready, ready)
+    return () => { active = false }
+  }, [overMap, returning, flight?.revealAt, live, arrive])
+  useLayoutEffect(() => {
+    if (!flight || !frame.current) return
+    // Count back to orbit on the same clock across the album route change.
+    const start = returning ? flight.startedAt + mapFlightDuration + returnOrbitTail - globeFlightDuration : flight.startedAt
+    const controller = live ? scene.current : null
+    const earth = frame.current.parentElement
+    if (!earth) return
+    const onCloudOpacity = (opacity: number, shaderReady = false) => {
+      earth.style.setProperty('--globe-cloud-opacity', String(opacity))
+      earth.toggleAttribute('data-live-clouds', shaderReady)
+    }
+    const mapReveal = overMap && (returning || flight.revealAt !== null) ? {
+      start: returning ? flight.startedAt + frameTravel + 50 : flight.revealAt!,
+      duration: cloudFadeDuration, returning,
+    } : undefined
+    controller?.flyToPlace(flight, { start, duration: globeFlightDuration, returning, releaseMapAt: flight.startedAt + mapFlightDuration - 80, mapCamera, mapReveal, onCloudOpacity })
+    const point = projectPlace(flight, orbitAngles(1))
+    const poster = earth.querySelector<HTMLElement>('.planet-poster')
+    const fallback = poster?.animate([
+      { transform: 'scale(1)' },
+      { transform: `scale(15) translate(${-point.x * 100}%, ${-point.y * 100}%)` },
+    ], { duration: globeFlightDuration, direction: returning ? 'reverse' : 'normal', fill: 'both', easing: 'ease-in-out' })
+    if (fallback) fallback.currentTime = Math.max(0, performance.now() - start)
+    let raf = 0
+    if (!controller && poster) {
+      const update = () => {
+        const rect = poster.getBoundingClientRect()
+        const elapsed = Math.min(1, Math.max(0, (performance.now() - start) / globeFlightDuration))
+        onCloudOpacity(flightCloudOpacity(rect.width * globeDiameterFraction / 2, rect.left + rect.width / 2,
+          rect.top + rect.height / 2, document.documentElement.clientWidth, window.innerHeight, returning ? 1 - elapsed : elapsed))
+        if (elapsed < 1) raf = requestAnimationFrame(update)
+      }
+      update()
+    }
+    return () => {
+      cancelAnimationFrame(raf)
+      controller?.flyToPlace(null)
+      fallback?.cancel()
+      earth.style.removeProperty('--globe-cloud-opacity')
+      earth.removeAttribute('data-live-clouds')
+    }
+  }, [flight, overMap, returning, live, scene, mapCamera])
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0, side: 0 })
+  const [view, setView] = useState(() => orbitAngles(pose === 'experience' ? 1 : 0))
   useEffect(() => {
-    if (live && scene.current) return scene.current.observeOrbit(setProgress)
-    setProgress(pose === 'experience' ? 1 : 0)
+    if (live && scene.current) return scene.current.observeOrbit(setView)
+    setView(orbitAngles(pose === 'experience' ? 1 : 0))
   }, [live, pose, scene])
   useEffect(() => {
-    if (!frame.current) return
-    const observer = new ResizeObserver(([entry]) => {
-      setDimensions({ width: entry.contentRect.width, height: entry.contentRect.height })
+    const map = frame.current
+    const earth = map?.closest<HTMLElement>('.earth-frame')
+    if (!map || !earth) return
+    const observer = new ResizeObserver(() => {
+      setDimensions({ width: map.clientWidth, height: map.clientHeight, side: Math.min(earth.clientWidth, earth.clientHeight) })
     })
-    observer.observe(frame.current)
+    observer.observe(map)
+    observer.observe(earth)
     return () => observer.disconnect()
   }, [])
-  const { width, height } = dimensions
-  const side = Math.min(width, height)
-  const pins = (atlas?.places ?? []).flatMap(place => {
-    const point = projectPlace(place, progress)
-    return side && point.visible ? [{ place, x: width / 2 + side * point.x, y: height / 2 + side * point.y, buttonX: 0 }] : []
-  }).sort((a, b) => a.x - b.x)
-  // Separate close targets (Boston and New York) while leaving the geographic
-  // anchor at its true location. A small stem connects each displaced target.
-  for (let i = 0; i < pins.length; i++) {
-    const pin = pins[i]
-    pin.buttonX = pin.x
-    for (const neighbor of pins.slice(0, i)) {
-      if (Math.abs(neighbor.y - pin.y) < 38) pin.buttonX = Math.max(pin.buttonX, neighbor.buttonX + 38)
+  const { width, height, side } = dimensions
+  const places = atlas?.places
+  const pins = useMemo(() => {
+    const visible: GlobePin[] = []
+    for (const place of places ?? []) {
+      const point = projectPlace(place, view)
+      if (!side || !point.visible) continue
+      const x = width / 2 + side * point.x, y = height / 2 + side * point.y
+      if (x < 0 || y < 0 || x > width || y > height) continue
+      if (place.href) {
+        const t = Math.max(0, Math.min(1, (point.viewCosine - minBadgeViewCosine) / (fullBadgeViewCosine - minBadgeViewCosine)))
+        visible.push({ place, x, y, reveal: t * t * (3 - 2 * t) })
+      } else visible.push({ place, x, y, reveal: 1 })
     }
-  }
-  const active = pins.find(pin => pin.place.id === atlas?.selected)
-  const cardWidth = Math.min(250, Math.max(0, width - 16))
-  const cardLeft = active ? Math.max(8, Math.min(active.buttonX - cardWidth / 2, width - cardWidth - 8)) : 0
-  const nearby = pins.filter(pin => pin.buttonX >= cardLeft - 20 && pin.buttonX <= cardLeft + cardWidth + 20)
-  const above = Math.min(...nearby.map(pin => pin.y)) - cardHeight - 19
-  const below = Math.max(...nearby.map(pin => pin.y)) + 19
-  const cardTop = above >= 8 || above > height - below - cardHeight ? above : below
-  useEffect(() => {
-    if (!card.current) return
-    const observer = new ResizeObserver(() => setCardHeight(card.current?.offsetHeight ?? 96))
-    observer.observe(card.current)
-    return () => observer.disconnect()
-  }, [active?.place.id])
-  return <div id="place-map" ref={frame} className="place-map" role="group" aria-label="Locations on Earth" tabIndex={-1}>
-    {pins.map(({ place, x, y, buttonX }) => <div className="place-anchor" key={place.id} style={{ left: x, top: y }}>
-      {buttonX !== x && <span className="place-stem" style={{ width: buttonX - x }}/>}
-      <Button size="sm" isIconOnly variant="borderless" data-place-pin="" style={{ left: buttonX - x }}
-        aria-label={`${place.title}, ${place.location}`} aria-pressed={place.id === atlas?.selected}
-        onClick={() => atlas?.select(place.id)}><span className="place-pin-dot" aria-hidden="true"/></Button>
-    </div>)}
-    {active && <div ref={card} className="place-callout" style={{ left: cardLeft, width: cardWidth, top: cardTop }}>
-      {active.place.cover && <img className="place-cover" src={active.place.cover} alt="" width={54} height={54}/>}
-      <div>
-        <div className="place-title-row">
-          {active.place.logo && <img className="employer-mark" src={active.place.logo} alt="" width={22} height={22}/>}
-          <Link href={`#${active.place.id}`} data-place-title="" style={{ color: '#f5f5f7', fontSize: '1rem', fontWeight: 650 }} aria-label={`${active.place.action}: ${active.place.title}`}>{active.place.title}</Link>
-        </div>
-        {active.place.detail && <span>{active.place.detail}</span>}
-        <span>{active.place.location} · {active.place.period}</span>
-      </div>
-    </div>}
+    return visible
+  }, [places, view, side, width, height])
+  return <div id="place-map" ref={frame} className="place-map" style={{ '--orbit-extent': maxOrbitZoom } as CSSProperties}
+    data-flying={flight ? true : undefined} role="group" aria-label="Locations on Earth" tabIndex={-1}>
+    <GlobePins pins={pins} width={width} height={height} selected={atlas?.selected} onSelect={atlas?.select}/>
   </div>
 }

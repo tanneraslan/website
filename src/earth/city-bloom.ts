@@ -39,13 +39,19 @@ export class CityBloomPass extends Pass {
       ...additive,
       uniforms: {
         sunDirection: lamps.material.uniforms.sunDirection,
+        focalLengthPx: lamps.material.uniforms.focalLengthPx,
+        lampFade: lamps.material.uniforms.lampFade,
+        groundOpacity: lamps.material.uniforms.groundOpacity,
         sourceSize: { value: new Vector2() },
         air: { value: transmittance },
-        cloudMap: clouds.cloudMap, cloudStrength: clouds.cloudStrength
+        cloudMap: clouds.cloudMap, cloudStrength: clouds.cloudStrength,
+        cloudSeconds: clouds.cloudSeconds,
+        flightTarget: clouds.flightTarget, flightCoverage: clouds.flightCoverage
       },
       vertexShader: `
         uniform vec2 sourceSize;
-        uniform float cloudStrength;
+        uniform float cloudStrength, flightCoverage, groundOpacity;
+        uniform vec3 flightTarget;
         ${cloudCoverageGLSL}
         uniform sampler2D air;
         varying vec2 footprint;
@@ -83,11 +89,19 @@ export class CityBloomPass extends Pass {
             vec3 normal = normalize(shell * vec3(1.0, 1.0, 1.0067395));
             vec2 cloudCoord = cloudUV(normal);
             float density = textureLod(cloudMap, cloudCoord, 0.0).r;
+            float deck = flightDeck(normal, flightTarget, flightCoverage);
+            float close = 1.0 - smoothstep(350000.0, 1600000.0, distance(cameraPosition, shell));
+            float detail = close * deck;
             cover = cloudOpacity(density);
+            if (detail > 0.0) {
+              float mask = referenceCloud(flightCloudUV(normal, flightTarget), cloudSeconds).x;
+              cover = mix(cover, mask, detail);
+            }
           }
+          cover *= cloudStrength;
           float sigma = max(0.72, radiusPx * 0.5) * (1.0 + 3.0 * cover);
           float transmittedArea = (1.0 - nightCloudOpacity(cover)) * radiusPx * radiusPx;
-          energy = lamp.color * transmission(lamp.viewCos) * (0.5 * transmittedArea / (sigma * sigma));
+          energy = groundOpacity * lamp.color * transmission(lamp.viewCos) * (0.5 * transmittedArea / (sigma * sigma));
           footprint = position.xy * 3.0;
           clip.xy += footprint * (2.0 * sigma / sourceSize) * clip.w;
           gl_Position = clip;

@@ -19,6 +19,7 @@ export interface Entry {
   description?: string
   tag?: string
   image?: string
+  previewImage?: string
   instruments?: string[]
   genre?: string[]
   audio?: string

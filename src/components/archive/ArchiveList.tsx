@@ -1,5 +1,6 @@
 import { entries, postTags, type Entry } from '@/content/metadata'
 import { SiteLink } from '@/components/SiteLink'
+import Image from 'next/image'
 
 export const formatDate = (date: string) => new Intl.DateTimeFormat('en-US', {
   month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
@@ -9,7 +10,8 @@ export async function PostList({ posts }: { posts?: Entry[] }) {
   const items = posts ?? await entries('posts')
   return <ul className="post-list">{items.map(post => <li key={post.slug}>
     <SiteLink data-archive="post-item" href={'/posts/' + post.slug}>
-      {post.image && <img src={post.image} loading="lazy" alt="" />}
+      {post.image && <Image src={post.previewImage ?? post.image} alt="" width={176} height={121}
+        sizes="(max-width: 489px) 88px, (max-width: 978px) 18vw, 176px"/>}
       <div><time dateTime={post.date}>{formatDate(post.date)}</time><h2>{post.title}</h2><p>{post.description}</p></div>
     </SiteLink>
     <div className="article-tags">{postTags(post).map(tag =>

@@ -1,0 +1,14 @@
+.globe-glass-filter { position: absolute; pointer-events: none; }
+.earth-frame:has(#place-glass) .globe { filter: url(#place-glass); }
+.liquid-glass {
+  background: linear-gradient(135deg, rgb(73 78 90 / .53), rgb(37 40 49 / .46));
+  border: 1px solid rgb(235 241 255 / .21);
+  box-shadow: inset 0 1px 0 #ffffff1f, inset 0 -1px 0 #14162333, 0 3px 10px #0003;
+  -webkit-backdrop-filter: var(--glass-refraction, blur(0px)) blur(5px) saturate(1.25);
+  backdrop-filter: var(--glass-refraction, blur(0px)) blur(5px) saturate(1.25);
+  text-shadow: 0 1px 3px #10121acc;
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
+  .earth-frame:has(#place-glass) .globe { filter: none; }
+  .liquid-glass { background: #202329; -webkit-backdrop-filter: none; backdrop-filter: none; text-shadow: none; }
+}

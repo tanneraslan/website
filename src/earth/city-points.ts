@@ -1,9 +1,8 @@
 import { Geodetic } from '@takram/three-geospatial'
 import {
-  DynamicDrawUsage, InstancedBufferGeometry, InstancedInterleavedBuffer,
-  InterleavedBufferAttribute, Mesh, OctahedronGeometry, ShaderMaterial, Vector3
+  DynamicDrawUsage, Float32BufferAttribute, InstancedBufferGeometry, InstancedInterleavedBuffer,
+  InterleavedBufferAttribute, Mesh, ShaderMaterial, Vector2, Vector3
 } from 'three'
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
 
 // Both the surface spill and individual lamps follow the local solar elevation.
 export const cityTwilightGLSL = `
@@ -12,15 +11,9 @@ export const cityTwilightGLSL = `
   }`
 
 function lampGeometry() {
-  // Sebastian's IcoSphere.Generate(1, 0.5) subdivides an octahedron once.
-  // Its radius, 18 shared vertices and 32 triangular faces are preserved here.
-  const octahedron = new OctahedronGeometry(0.5, 1)
-  octahedron.deleteAttribute('normal')
-  octahedron.deleteAttribute('uv')
-  const indexed = mergeVertices(octahedron)
   const geometry = new InstancedBufferGeometry()
-  geometry.setAttribute('position', indexed.getAttribute('position'))
-  geometry.setIndex(indexed.index)
+  geometry.setAttribute('position', new Float32BufferAttribute([-1,-1,0, 1,-1,0, 1,1,0, -1,1,0], 3))
+  geometry.setIndex([0,1,2, 0,2,3])
   geometry.instanceCount = 0
   return geometry
 }
@@ -31,6 +24,8 @@ export const lampVertexGLSL = `
   attribute vec3 lampCenter;
   attribute vec2 lampValues;
   uniform vec3 sunDirection;
+  uniform float focalLengthPx;
+  uniform float lampFade;
   ${cityTwilightGLSL}
 
   struct Lamp { vec3 center; vec3 color; float diameter; float viewCos; };
@@ -47,6 +42,11 @@ export const lampVertexGLSL = `
     // Map Sebastian's world (radius 150) to meters, enlarging diameter 3x for orbit.
     lamp.diameter = mix(3.15, 24.6, intensity) * 0.01 * (6378137.0 / 150.0) * 3.0 * scale;
     lamp.center = lampCenter + viewDir * (350.0 + 2200.0 * intensity);
+    // Cap the solid core at three CSS pixels, then fade its emitting area
+    // as the camera resolves the footprint. The texture carries the local glow.
+    float depth = -(viewMatrix * vec4(lamp.center, 1.0)).z;
+    float diameterPx = lamp.diameter * focalLengthPx / max(depth, 1.0);
+    lamp.diameter *= lampFade * (3.0 / max(3.0, diameterPx)) * (1.0 - smoothstep(3.0, 16.0, diameterPx));
     lamp.color = mix(vec3(0.6431373, 0.41890523, 0.0),
                      vec3(1.0, 0.92440695, 0.6839622) * 1.75, intensity);
     return lamp;
@@ -54,9 +54,13 @@ export const lampVertexGLSL = `
 
 function lampMaterial() {
   return new ShaderMaterial({
-    uniforms: { sunDirection: { value: new Vector3(1, 0, 0) } },
+    transparent: true, depthWrite: false,
+    uniforms: { groundOpacity: { value: 1 }, focalLengthPx: { value: 1 }, lampFade: { value: 0 }, sunDirection: { value: new Vector3(1, 0, 0) }, viewportPx: { value: new Vector2(1, 1) } },
     vertexShader: `
       varying vec3 lampColor;
+      uniform vec2 viewportPx;
+      varying vec2 offsetPx;
+      varying float radiusPx;
       ${lampVertexGLSL}
       void main() {
         Lamp lamp = sampleLamp();
@@ -64,13 +68,22 @@ function lampMaterial() {
           gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
           return;
         }
-        gl_Position = projectionMatrix * viewMatrix * vec4(lamp.center + position * lamp.diameter, 1.0);
+        gl_Position = projectionMatrix * viewMatrix * vec4(lamp.center, 1.0);
+        radiusPx = 0.25 * lamp.diameter * viewportPx.y * projectionMatrix[1][1] / gl_Position.w;
+        offsetPx = position.xy * (max(radiusPx, 1.0) + 0.75);
+        gl_Position.xy += 2.0 * offsetPx * gl_Position.w / viewportPx;
         lampColor = lamp.color;
       }`,
     fragmentShader: `
+      uniform float groundOpacity;
       varying vec3 lampColor;
+      varying vec2 offsetPx;
+      varying float radiusPx;
       void main() {
-        gl_FragColor = vec4(lampColor, 1.0);
+        // Spread a subpixel disc over adjacent samples, preserving its emitting area.
+        float r = max(radiusPx, 1.0);
+        float coverage = 1.0 - smoothstep(r - 0.75, r + 0.75, length(offsetPx));
+        gl_FragColor = vec4(lampColor, groundOpacity * coverage * radiusPx * radiusPx / (r*r + 0.1125));
       }`
   })
 }
@@ -97,7 +110,9 @@ class CityPointLayer extends Mesh<InstancedBufferGeometry, ShaderMaterial> {
     this.geometry.setAttribute('lampValues', new InterleavedBufferAttribute(this.visibleData, 2, 3))
   }
 
-  updateView(cameraPosition: Vector3, sunDirection: Vector3) {
+  updateView(cameraPosition: Vector3, sunDirection: Vector3, focalLengthPx: number, width: number, height: number) {
+    this.material.uniforms.viewportPx.value.set(width, height)
+    this.material.uniforms.focalLengthPx.value = focalLengthPx
     this.material.uniforms.sunDirection.value.copy(sunDirection)
     this.towardCamera.copy(cameraPosition).normalize()
     // A 15-degree bin has angular radius below 11 degrees. Include a margin
@@ -159,6 +174,10 @@ export async function loadCityPoints(signal: AbortSignal) {
   const geodetic = new Geodetic()
   const point = new Vector3()
   for (let offset = 0; offset < records.length; offset += 5) {
+    if (offset > 0 && offset % (8192 * 5) === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0))
+      signal.throwIfAborted()
+    }
     // The source encodes its normalized elevation in radii 150..153. Map
     // that terrain relief to 0..8,849 m above the Earth ellipsoid.
     const height = (records[offset + 2] - 150) * (8849 / 3)

@@ -25,6 +25,7 @@
 * { box-sizing: border-box }
 body { margin: 0 }
 .site {
+  isolation: isolate;
   --lenso-font-body: var(--sans);
   --lenso-link: var(--link);
   --lenso-control-switch-on: #686a70;
@@ -37,6 +38,7 @@ body { margin: 0 }
   overflow: clip;
   --gutter: clamp(20px, 5vw, 84px);
 }
+.star-sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
 button, input { font: inherit }
 button { cursor: pointer }
 button:disabled { cursor: default }
@@ -44,15 +46,31 @@ a { color: var(--link); text-underline-offset: .18em }
 :focus-visible { outline: 2px solid var(--link); outline-offset: 4px }
 .skip-link { position: fixed; left: 16px; top: 8px; z-index: 10; background: var(--surface); padding: 10px 16px; border-radius: 12px; transform: translateY(-160%) }
 .skip-link:focus { transform: none }
-.masthead, .footer { width: min(calc(100% - 2 * var(--gutter)), 1380px); margin-inline: auto; display: flex; justify-content: space-between; align-items: center; gap: 20px }
+.masthead { width: min(calc(100% - 2 * var(--gutter)), 1380px); margin-inline: auto; display: flex; justify-content: space-between; align-items: center; gap: 20px }
 .masthead { min-height: 74px; border-bottom: 1px solid var(--line); position: relative; z-index: 3 }
 .masthead [data-kind=brand] { display: inline-flex; align-items: center; gap: 9px; color: var(--ink) !important; font-size: 17px; font-weight: 620; letter-spacing: -.045em; text-decoration: none }
 .mobile-dock { display: none }
-.mark { display: inline-block; width: 30px; height: 24px; background: currentColor; mask: url("/logos/ta.png") center / contain no-repeat }
-.mobile-dock .mark { width: 23px; height: 20px }
+.mark { display: block; width: 32px; height: 32px; object-fit: contain }
 .masthead nav { display: flex; align-items: center; gap: 3px }
 .masthead nav a { padding: 8px 13px; border-radius: 20px !important; font-size: 14px; color: #b5b6bd !important; text-decoration: none; font-weight: 470; white-space: nowrap }
 .masthead nav a:is(:hover,[aria-current]) { color: var(--ink) !important; background: #ffffff10 }
+@media (min-width: 761px) {
+  /* Reserve the masthead's original space when it becomes a floating bar. */
+  .masthead-slot { flex: 0 0 74px; }
+  .masthead[data-floating] {
+    position: fixed; inset: 12px 0 auto; z-index: 6;
+    width: calc(100% - 2 * var(--gutter)); min-height: 52px;
+    padding: 6px 10px 6px 20px; border: 0; border-radius: 28px;
+  }
+  .masthead-glass {
+    position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  }
+  .home .home-story { min-height: calc(100svh - 64px); align-content: start; }
+}
+@media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
+  .masthead[data-floating] { animation: masthead-arrive 180ms ease-out both; }
+  @keyframes masthead-arrive { from { opacity: 0; transform: translateY(-8px); } }
+}
 .composition { width: min(calc(100% - 2 * var(--gutter)), 1380px); margin-inline: auto; flex: 1; }
 .site h1, .site h2, .site h3 { color: var(--ink); text-wrap: balance }
 .site h1 { margin: 0; font-size: clamp(42px, 5.2vw, 80px); line-height: 1.02; letter-spacing: -.065em; font-weight: 620 }
@@ -60,40 +78,138 @@ a { color: var(--link); text-underline-offset: .18em }
 .site h3 { line-height: 1.25; letter-spacing: -.025em; font-weight: 580 }
 .site p { line-height: 1.6 }
 .site .lede { color: #b5b6bd; margin: 18px 0 0; line-height: 1.43; text-wrap: pretty; font-size: clamp(17px, 1.5vw, 23px); letter-spacing: -.024em }
-.home .composition { display: grid; grid-template-columns: .85fr 1.15fr; align-items: center }
+.home .composition {
+  --home-gutter: max(var(--gutter), calc((100% - 1380px) / 2));
+  width: 100%; display: grid; align-items: center;
+  grid-template-columns: var(--home-gutter) minmax(0, .85fr) minmax(0, 1.15fr) var(--home-gutter);
+}
 .home .page-copy { display: contents }
-.intro { grid-row: 1; grid-column: 1; position: relative; z-index: 1; padding: 70px 0 }
+.intro { grid-row: 1; grid-column: 2; position: relative; z-index: 1; padding: 70px 0 }
 .intro h1 { max-width: 7em; font-size: clamp(68px, 7.8vw, 122px); line-height: .98 }
 .intro .lede { max-width: 23em }
 .actions { display: flex; align-items: center; gap: 24px; margin-top: 32px }
 .actions a { font-weight: 550; font-size: 15px }
 .actions [data-kind=primary] { padding: 12px 21px; border-radius: 99px !important; color: #151518 !important; background: #f5f5f7; text-decoration: none }
 .observatory { position: relative; min-width: 0; width: 100% }
-.home .observatory { grid-column: 2; grid-row: 1; width: min(62vw, 78svh, 860px); justify-self: center; margin: 16px 0 }
+.home .observatory { grid-column: 3; grid-row: 1; width: min(62vw, 78svh, 860px); justify-self: center; margin: 16px 0 }
 .earth-frame { position: relative; width: 100%; aspect-ratio: 1 }
 .globe, .planet-poster, .canvas-host, .canvas-host canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
+.globe > .planet-poster { width: calc(100% / var(--orbit-extent, 1)); height: auto; margin: auto; }
+.earth-frame > :is(.globe, .place-map) {
+  inset: calc((1 - var(--orbit-extent, 1)) * 50%) auto auto calc((1 - var(--orbit-extent, 1)) * 50%);
+  width: calc(100% * var(--orbit-extent, 1)); height: calc(100% * var(--orbit-extent, 1));
+}
+.site:has(.orbit-control) .footer,
+.atlas:has(.orbit-control) .page-copy { position: relative; z-index: 3; }
+.home-location { position: absolute; z-index: 2; width: 0; height: 0; pointer-events: none; }
+.home-location::after {
+  content: ''; position: absolute; width: 7px; height: 7px; border-radius: 50%;
+  background: #ee3756; border: 1.5px solid white; transform: translate(-50%, -50%);
+  box-shadow: 0 1px 3px #0008;
+}
+.home-location-badge {
+  --diameter: clamp(48px, 5vw, 64px);
+  position: absolute; left: 0; bottom: 11px; width: var(--diameter);
+  transform: translateX(-50%); transform-origin: bottom center;
+}
+.home-location-portrait {
+  position: relative; width: 100%; aspect-ratio: 5 / 6;
+  filter: drop-shadow(0 2px 3px #0006);
+}
+.home-location-portrait::after {
+  content: ''; position: absolute; left: 50%; bottom: -6px;
+  width: 15px; height: 9px; transform: translateX(-50%);
+  background: white; clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.home-location-portrait::before {
+  content: ''; position: absolute; inset: auto 0 0; aspect-ratio: 1;
+  border-radius: 50%; background: #aaa; box-shadow: 0 0 0 2.5px white;
+}
+.home-location-portrait img {
+  position: absolute; bottom: 0; left: 50%; width: 127.1875%; max-width: none; height: auto;
+  transform: translateX(-50%);
+}
+.home-location-label {
+  position: absolute; top: calc(100% + 20px); left: 50%; width: max-content; transform: translateX(-50%);
+  font-size: .875rem; font-weight: 550; padding: 5px 10px; border-radius: 99px;
+  color: #fff;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .home-location-badge { animation: pin-arrive 680ms 160ms both; }
+  @keyframes pin-arrive {
+    0% { opacity: 0; transform: translate(-50%, -18px) scale(.88); }
+    68% { opacity: 1; transform: translate(-50%, 2px) scale(1.025); }
+    100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  }
+}
 .globe { pointer-events: none }
+.orbit-control-clip { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.earth-frame:not(:has(.flight-viewport)) > :is(.globe, .place-map, .home-location, .orbit-control-clip) {
+  margin-left: var(--orbit-pan-x, 0%); margin-top: var(--orbit-pan-y, 0%);
+}
+.orbit-control { position: absolute; border-radius: 50%; pointer-events: auto; cursor: grab; touch-action: none; user-select: none; }
+.earth-frame:has(.orbit-control) [data-place-pin] { touch-action: none; }
+.sunlight-setting {
+  position: absolute; z-index: 3; right: 10%; bottom: 6%;
+  width: max-content; border-radius: 99px;
+}
+.sunlight-glass { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.sunlight-setting [data-sunlight-switch] {
+  position: relative;
+  min-height: 44px; padding: 0 12px 0 15px; border-radius: inherit; cursor: pointer;
+}
+.sunlight-setting [data-sunlight-label] {
+  display: inline-flex; align-items: center; gap: 7px; color: var(--ink);
+  font: 550 .875rem/1.2 var(--sans); white-space: nowrap;
+}
+.sunlight-setting:has(:focus-visible) { outline: 2px solid var(--link); outline-offset: 3px; }
+.orbit-control:active { cursor: grabbing; }
+.orbit-control:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
 .planet-poster, .canvas-host { transition: opacity .20s ease-in-out }
 .home-story { grid-column: 1/-1; grid-row: 2; border-top: 1px solid var(--line); padding: clamp(45px,7vw,100px) 0; display: grid; grid-template-columns: minmax(0, 640px) minmax(210px,380px); justify-content: space-between; align-items: start; gap: clamp(40px,7vw,140px) }
+.home-story { position: relative; z-index: 3; padding-inline: var(--home-gutter); }
+.home-story::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  --fade: clamp(40px, 8svh, 80px);
+  inset: calc(-1 * var(--fade)) 0 0;
+  background: rgb(9 10 12 / .35);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  mask-image: linear-gradient(to bottom, transparent, black calc(var(--fade) * 1.5));
+}
+@media (prefers-reduced-transparency: reduce) {
+  .home-story::before { background: var(--page); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
 .biography h2 { font-size: clamp(32px, 3vw, 48px); margin: 0 0 24px }
 .biography p { max-width: 54ch; margin: 0; color: #c4c5cb; font-size: 17px }
 .biography h3 { margin: 28px 0 6px; font-size: 20px }
 .home-photo { margin: 0 }
 .home-photo img { width: 100%; height: auto; aspect-ratio: 4/5; object-fit: cover; border-radius: 20px; display: block }
 .home-photo figcaption { display: flex; justify-content: space-between; gap: 10px; margin-top: 13px; font-size: 14px; color: var(--muted) }
-.atlas .composition { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; gap: clamp(16px,3vw,54px); padding-block: clamp(35px,5vw,72px) }
+.atlas .composition { --atlas-gap: clamp(16px,3vw,54px); display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; gap: var(--atlas-gap); padding-block: clamp(35px,5vw,72px) }
 .atlas .page-copy { min-width: 0 }
 .atlas .observatory { position: sticky; top: 24px }
-.footer { padding-block: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px }
-.footer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 16px }
-.footer [data-kind=credits] { position: relative }
+@media (min-width: 761px) {
+  .resume .observatory {
+    position: fixed; top: 24px;
+    right: max(var(--gutter), calc((100% - 1380px) / 2));
+    width: calc((min(100% - 2 * var(--gutter), 1380px) - var(--atlas-gap)) / 2);
+  }
+}
+.footer { width: min(calc(100% - 2 * var(--gutter)), 45rem); margin: 2rem auto 0; padding-block: clamp(2rem, 6vw, 6rem); border-top: 1px solid var(--line); color: var(--muted); font-size: 14px }
+.footer-row, .footer-contact { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px }
+.footer-row { justify-content: space-between; gap: 12px 24px }
+.footer-email, .footer-contact a { display: inline-flex; align-items: center; gap: 8px }
+.footer-contact a { min-width: 32px; height: 40px; justify-content: center; color: inherit }
+.footer-contact a:hover, .footer-contact a:focus-visible { color: var(--ink) }
+.footer [data-kind=credits] { position: relative; width: fit-content; margin: 10px 0 0 auto }
 .footer [data-kind=credits] button { display: flex; align-items: center; gap: 6px; background: none; color: var(--muted); font: inherit; border: 0 }
 .credits-card { position: absolute; bottom: calc(100% + 10px); right: 0; z-index: 4; width: min(290px,80vw); display: grid; gap: 10px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: #1c1c1f; box-shadow: 0 12px 48px #0007 }
 .missing { padding-block: 100px }
 @media (max-width: 760px) {
   html { scroll-padding-bottom: calc(90px + env(safe-area-inset-bottom)) }
   .site { padding-bottom: calc(86px + env(safe-area-inset-bottom)) }
-  .masthead { display: none }
+  .masthead-slot { display: none }
   .mobile-dock {
     display: block; position: fixed; z-index: 5;
     bottom: calc(10px + env(safe-area-inset-bottom)); margin-inline: auto;
@@ -102,15 +218,15 @@ a { color: var(--link); text-underline-offset: .18em }
   }
   .mobile-dock svg { width: 20px; height: 20px }
   .mobile-dock [data-tab-bar-list] > li { flex: 1 1 0; min-width: 0 }
-  .home .composition { grid-template-columns: minmax(0, 1fr) }
+  .home .composition { grid-template-columns: var(--home-gutter) minmax(0, 1fr) var(--home-gutter) }
   .intro { padding: 46px 0 0; text-align: center }
   .intro h1, .intro .lede { margin-inline: auto }
   .actions { justify-content: center; margin-top: 20px }
-  .home .observatory { grid-column: 1; grid-row: 2; width: min(100vw,520px); margin: 6px 0 20px }
+  .home .observatory { grid-column: 2; grid-row: 2; width: min(100vw,520px); margin: 6px 0 20px }
+  .sunlight-setting { position: relative; right: auto; bottom: auto; margin: -2% auto 6px; }
   .home-story { grid-row: 3; grid-template-columns: minmax(0, 1fr) }
   .home-photo { max-width: 440px; }
   .atlas .composition { display: flex; flex-direction: column; gap: 18px; align-items: stretch; padding-top: 16px }
   .atlas .observatory { position: relative; top: auto; order: -1; width: min(100%,440px); margin: 0 auto }
-  .footer { flex-wrap: wrap }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important } .canvas-host, .planet-poster { transition: none } }

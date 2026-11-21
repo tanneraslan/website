@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { entries } from '@/content/metadata'
 import { SiteLink } from '@/components/SiteLink'
 import { AudioPlayer } from '@/components/archive/AudioPlayer'
+import { SheetMusic } from '@/components/archive/SheetMusic'
 
 type Props = { params: Promise<{ slug: string }> }
 export const dynamicParams = false
@@ -28,9 +29,7 @@ export default async function Composition({ params }: Props) {
     <ArticleBody><Body /></ArticleBody>
     {piece.sheetMusic && <section className="score">
       <h2>Sheet music</h2><SiteLink href={piece.sheetMusic} download>Download score (PDF)</SiteLink>
-      <object data={piece.sheetMusic} type="application/pdf" aria-label={piece.title + ' sheet music'}>
-        <SiteLink href={piece.sheetMusic}>Open sheet music</SiteLink>
-      </object>
+      <SheetMusic key={piece.sheetMusic} file={piece.sheetMusic}/>
     </section>}
   </article>
 }

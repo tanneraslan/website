@@ -1,4 +1,4 @@
-import type { EarthAtmosphere } from './atmosphere'
+import { atmosphereLightingUniforms, type EarthAtmosphere } from './atmosphere'
 import { bumpGLSL } from './bump'
 import { oceanGLSL } from './ocean'
 import { Geodetic } from '@takram/three-geospatial'
@@ -28,8 +28,9 @@ export function createSurface(atmosphere: EarthAtmosphere) {
   return new ShaderMaterial({
     defines: Object.fromEntries(atmosphere.defines),
     uniforms: {
-      ...Object.fromEntries([...atmosphere.uniforms].filter(([key]) =>
-        key === 'ATMOSPHERE' || key.endsWith('_texture') || key.endsWith('_TO_LUMINANCE'))),
+      ...atmosphereLightingUniforms(atmosphere),
+      groundOpacity: { value: 1 },
+      detailMix: { value: 0 },
       day: { value: null }, night: { value: null }, elevation: { value: null },
       dayCube: { value: null }, cubeMix: { value: 0 },
       bathymetry: { value: null }, waterNormal: { value: null }, oceanSeconds: { value: 0 },
@@ -42,6 +43,7 @@ export function createSurface(atmosphere: EarthAtmosphere) {
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
+      uniform float groundOpacity, detailMix;
       uniform sampler2D day, night, elevation;
       uniform samplerCube dayCube;
       uniform float cubeMix;
@@ -67,6 +69,17 @@ export function createSurface(atmosphere: EarthAtmosphere) {
         vec2 uvDy = vec2(dot(dy, east), dot(dy, north)) / scales;
         vec3 color = textureGrad(day, geoUV, uvDx, uvDy).rgb;
         if (cubeMix > 0.0) color = mix(color, texture(dayCube, normal).rgb, cubeMix);
+        vec3 baseLight = vec3(0.0);
+        if (detailMix < 1.0) {
+          float sun = dot(normal, sunDirection);
+          float city = textureGrad(night, geoUV, uvDx, uvDy).r;
+          baseLight = color * (0.025 + 1.5 * pow(max(sun, 0.0), 2.0))
+            + vec3(0.005, 0.009, 0.022) + vec3(1.1, 0.65, 0.29) * city * cityDarkness(sun);
+          if (detailMix == 0.0) {
+            gl_FragColor = vec4(baseLight * groundOpacity, groundOpacity);
+            return;
+          }
+        }
         float oceanMask = textureGrad(elevation, geoUV, uvDx, uvDy).b;
         BumpStencil stencil = bumpStencil(normal, east, north, float(textureSize(elevation, 0).x));
         // Heights are stored as a fraction of 8,849 m. Express them in Earth
@@ -84,6 +97,14 @@ export function createSurface(atmosphere: EarthAtmosphere) {
         float diffuse = max(0.0, dot(terrainNormal, sunDirection));
         vec3 radiance = color * (0.016 + 1.5 * diffuse * diffuse);
 
+        // As the camera descends, resolve the light reaching the terrain
+        // through the gaps using the same sun and sky as the cloud layer.
+        float approach = 1.0 - smoothstep(350000.0, 1600000.0, distance(cameraPosition, surfacePosition));
+        if (approach > 0.0) {
+          vec3 sky;
+          vec3 sun = GetSunAndSkyIrradiance(normal * (ATMOSPHERE.bottom_radius + 0.002), terrainNormal, sunDirection, sky);
+          radiance = mix(radiance, color * (0.016 + 0.78 * sun + gradeAir(sky, solarElevation)), approach);
+        }
         vec3 view = normalize(cameraPosition - surfacePosition);
         // Fixed geographic footprints across base/refined night maps. Blend the
         // two coarse levels to soften cities into the surrounding terrain.
@@ -113,7 +134,7 @@ export function createSurface(atmosphere: EarthAtmosphere) {
           vec3 waterLight = lightOcean(normal, wave, view, sunDirection, 11000.0 * encoded * encoded);
           radiance = mix(radiance, waterLight, openWater);
         }
-        gl_FragColor = vec4(radiance, 1.0);
+        gl_FragColor = vec4(mix(baseLight, radiance, detailMix) * groundOpacity, groundOpacity);
       }`
   })
 }

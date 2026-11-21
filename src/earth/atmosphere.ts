@@ -1,3 +1,4 @@
+import { common, definitions, runtime } from '@takram/three-atmosphere/shaders/bruneton'
 import { moonDirectionGLSL } from './night-lighting'
 import { AerialPerspectiveEffect } from '@takram/three-atmosphere'
 import { Uniform, type Camera } from 'three'
@@ -17,6 +18,24 @@ vec3 gradeAir(vec3 light, float alignment) {
   return mix(light, blue, violet * mix(0.70, 1.0, smoothstep(0.0, 0.85, alignment)));
 }
 `
+
+// Shared by materials that sample the same atmospheric tables as the sky.
+export const atmosphereLightingGLSL = `
+  precision highp sampler3D;
+  ${definitions}
+  uniform AtmosphereParameters ATMOSPHERE;
+  uniform vec3 SUN_SPECTRAL_RADIANCE_TO_LUMINANCE, SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+  uniform sampler2D transmittance_texture, irradiance_texture;
+  uniform sampler3D scattering_texture, single_mie_scattering_texture;
+  ${common}
+  ${runtime}
+  ${airColorGLSL}
+`
+
+export function atmosphereLightingUniforms(atmosphere: EarthAtmosphere) {
+  return Object.fromEntries([...atmosphere.uniforms].filter(([key]) =>
+    key === 'ATMOSPHERE' || key.endsWith('_texture') || key.endsWith('_TO_LUMINANCE')))
+}
 
 const wideScale = 10
 
@@ -51,6 +70,11 @@ export class EarthAtmosphere extends AerialPerspectiveEffect {
         float horizon = 1.0 - smoothstep(0.0, 0.32,
           dot(normalize(positionECEF), normalize(vCameraPosition - positionECEF)));
         radiance += mix(inscatter, gradeAir(inscatter, ${alignment}), horizon);`)
+    const airCall = 'applyTransmittanceInscatter(positionECEF, shadowLength, radiance);'
+    const coveredAir = gradedSource.replace(airCall, `
+      radiance /= max(inputColor.a, 0.0001);
+      ${airCall}
+      radiance *= inputColor.a;`)
     this.setFragmentShader(`
       ${moonDirectionGLSL}
       uniform float limbScale;
@@ -61,6 +85,6 @@ export class EarthAtmosphere extends AerialPerspectiveEffect {
         float altitude = max(radius - groundRadius, 0.0);
         return origin - tangent * (altitude / max(radius, 1.0)) * (1.0 - 1.0 / limbScale);
       }
-    ` + gradedSource)
+    ` + coveredAir)
   }
 }

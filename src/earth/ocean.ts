@@ -1,17 +1,8 @@
-import { common, definitions, runtime } from '@takram/three-atmosphere/shaders/bruneton'
-import { airColorGLSL } from './atmosphere'
+import { atmosphereLightingGLSL } from './atmosphere'
 
 // The engine's two scrolling normal layers, reoriented on the three axes.
 export const oceanGLSL = `
-  precision highp sampler3D;
-  ${definitions}
-  uniform AtmosphereParameters ATMOSPHERE;
-  uniform vec3 SUN_SPECTRAL_RADIANCE_TO_LUMINANCE, SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
-  uniform sampler2D transmittance_texture, irradiance_texture;
-  uniform sampler3D scattering_texture, single_mie_scattering_texture;
-  ${common}
-  ${runtime}
-  ${airColorGLSL}
+  ${atmosphereLightingGLSL}
   uniform sampler2D waterNormal, bathymetry;
   uniform float oceanSeconds;
   vec3 reorientWave(vec3 base, vec3 wave) {
