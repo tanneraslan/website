@@ -2,6 +2,22 @@ import { moonDirectionGLSL } from './night-lighting'
 import { AerialPerspectiveEffect } from '@takram/three-atmosphere'
 import { Uniform, type Camera } from 'three'
 
+export const airColorGLSL = `
+// The wide limb makes the LUT's violet band conspicuous. Adjust only
+// scattered sunlight, retaining its linear luminance and the warm sunset.
+vec3 gradeAir(vec3 light, float alignment) {
+  light = max(light, vec3(0.0));
+  float peak = max(0.00001, max(light.r, light.b));
+  float violet = smoothstep(0.025, 0.35, (light.b - light.g) / peak)
+    * smoothstep(0.65, 0.98, light.b / peak);
+  vec3 blue = vec3(min(light.r, 0.54 * light.b + 0.19 * light.g),
+    max(light.g, 0.46 * light.b + 0.25 * light.r), light.b);
+  const vec3 luma = vec3(0.2126, 0.7152, 0.0722);
+  blue *= dot(light, luma) / max(dot(blue, luma), 0.000001);
+  return mix(light, blue, violet * mix(0.70, 1.0, smoothstep(0.0, 0.85, alignment)));
+}
+`
+
 const wideScale = 10
 
 export class EarthAtmosphere extends AerialPerspectiveEffect {
@@ -38,19 +54,7 @@ export class EarthAtmosphere extends AerialPerspectiveEffect {
     this.setFragmentShader(`
       ${moonDirectionGLSL}
       uniform float limbScale;
-      // The wide limb makes the LUT's violet band conspicuous. Adjust only
-      // scattered sunlight, retaining its linear luminance and the warm sunset.
-      vec3 gradeAir(vec3 light, float alignment) {
-        light = max(light, vec3(0.0));
-        float peak = max(0.00001, max(light.r, light.b));
-        float violet = smoothstep(0.025, 0.35, (light.b - light.g) / peak)
-          * smoothstep(0.65, 0.98, light.b / peak);
-        vec3 blue = vec3(min(light.r, 0.54 * light.b + 0.19 * light.g),
-          max(light.g, 0.46 * light.b + 0.25 * light.r), light.b);
-        const vec3 luma = vec3(0.2126, 0.7152, 0.0722);
-        blue *= dot(light, luma) / max(dot(blue, luma), 0.000001);
-        return mix(light, blue, violet * mix(0.70, 1.0, smoothstep(0.0, 0.85, alignment)));
-      }
+      ${airColorGLSL}
       vec3 scaledSkyOrigin(vec3 origin, vec3 direction, float groundRadius) {
         vec3 tangent = origin - direction * dot(origin, direction);
         float radius = length(tangent);

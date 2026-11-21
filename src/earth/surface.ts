@@ -1,3 +1,4 @@
+import type { EarthAtmosphere } from './atmosphere'
 import { oceanGLSL } from './ocean'
 import { Geodetic } from '@takram/three-geospatial'
 import { nightLightingGLSL } from './night-lighting'
@@ -22,9 +23,12 @@ export function createEllipsoid() {
   return geometry
 }
 
-export function createSurface() {
+export function createSurface(atmosphere: EarthAtmosphere) {
   return new ShaderMaterial({
+    defines: Object.fromEntries(atmosphere.defines),
     uniforms: {
+      ...Object.fromEntries([...atmosphere.uniforms].filter(([key]) =>
+        key === 'ATMOSPHERE' || key.endsWith('_texture') || key.endsWith('_TO_LUMINANCE'))),
       day: { value: null }, night: { value: null }, relief: { value: null },
       dayCube: { value: null }, cubeMix: { value: 0 },
       bathymetry: { value: null }, waterNormal: { value: null }, oceanSeconds: { value: 0 },
@@ -42,9 +46,9 @@ export function createSurface() {
       uniform float cubeMix;
       uniform vec3 sunDirection;
       varying vec3 surfacePosition;
-      ${oceanGLSL}
       ${cityTwilightGLSL}
       ${nightLightingGLSL}
+      ${oceanGLSL}
       void main() {
         // Geodetic normal = normalized position divided by squared ellipsoid radii.
         vec3 normal = normalize(surfacePosition * vec3(1.0, 1.0, 1.0067394967));
@@ -68,26 +72,11 @@ export function createSurface() {
         // Preserve bright sea ice in the satellite imagery. The ocean mask
         // supplies fractional coastal coverage and the DEM supplies depth.
         float openWater = material.b * (1.0 - smoothstep(0.16, 0.48, min(color.r,min(color.g,color.b))));
-        vec3 waterN = normal;
-        if (openWater > 0.001) {
-          float encoded = textureGrad(bathymetry, geoUV, uvDx, uvDy).r;
-          float depthMetres = 11000.0 * encoded * encoded;
-          vec3 waterColor = mix(vec3(0.055,0.37,0.40), vec3(0.009,0.055,0.112), 1.0-exp(-depthMetres/650.0));
-          color = mix(color, waterColor, 0.83*openWater);
-          waterN = waterSurface(surfacePosition / 6378137.0, normal);
-          terrainNormal = normalize(mix(terrainNormal, waterN, openWater));
-        }
         float solarElevation = dot(normal, sunDirection);
         float diffuse = max(0.0, dot(terrainNormal, sunDirection));
         vec3 radiance = color * (0.016 + 1.5 * diffuse);
 
         vec3 view = normalize(cameraPosition - surfacePosition);
-        vec3 halfway = normalize(sunDirection + view);
-        float fresnel = 0.022 + 0.978 * pow(1.0 - max(0.0, dot(view, halfway)), 5.0);
-        float glint = pow(max(0.0, dot(waterN, halfway)), 95.0) * fresnel;
-        radiance += vec3(1.0, 0.87, 0.68) * glint * openWater * 9.0 *
-          smoothstep(0.0, 0.08, solarElevation);
-
         // Fixed geographic footprints across base/refined night maps. Blend the
         // two coarse levels to soften cities into the surrounding terrain.
         float urbanMip = log2(float(textureSize(night, 0).x) / 512.0);
@@ -110,6 +99,12 @@ export function createSurface() {
         float groundGlow = spill * (0.30 + pow(groundValue, 0.67))
           * nightRelief * (1.0 - material.b);
         radiance += darkness * groundGlow * vec3(1.35, 0.64, 0.22);
+        if (openWater > 0.001) {
+          float encoded = textureGrad(bathymetry, geoUV, uvDx, uvDy).r;
+          vec3 wave = waterSurface(surfacePosition / 6378137.0, normal);
+          vec3 waterLight = lightOcean(normal, wave, view, sunDirection, 11000.0 * encoded * encoded);
+          radiance = mix(radiance, waterLight, openWater);
+        }
         gl_FragColor = vec4(radiance, 1.0);
       }`
   })
