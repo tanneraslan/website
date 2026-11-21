@@ -1,25 +1,30 @@
 'use client'
 
-import { useId, useLayoutEffect, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import './liquid-glass.css'
 
 const displacementScale = 64
 const lensMaps = new Map<string, string>()
+const opaqueGlass = '(prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active)'
 
 // Red and green encode the horizontal and vertical offsets used by feDisplacementMap.
 // The center magnifies gently. The curved bezel pulls in a wider strip of the scene.
 function lensMap(width: number, height: number, radius: number) {
+  // Offsets are smooth and expressed in CSS pixels. Keep at most one texel
+  // per CSS pixel, with a 512 KiB RGBA budget even for a wide desktop bar.
+  const density = Math.min(1, Math.sqrt((128 * 1024) / (width * height)))
   const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
+  canvas.width = Math.max(1, Math.floor(width * density))
+  canvas.height = Math.max(1, Math.floor(height * density))
   const context = canvas.getContext('2d')
   if (!context) return undefined
-  const pixels = context.createImageData(width, height)
+  const pixels = context.createImageData(canvas.width, canvas.height)
+  const stepX = width / canvas.width, stepY = height / canvas.height
   const zoom = Math.min(0.07, 18 / width)
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const dx = x + 0.5 - width / 2
-      const dy = y + 0.5 - height / 2
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const dx = (x + 0.5) * stepX - width / 2
+      const dy = (y + 0.5) * stepY - height / 2
       const qx = Math.abs(dx) - width / 2 + radius
       const qy = Math.abs(dy) - height / 2 + radius
       const corner = Math.hypot(Math.max(qx, 0), Math.max(qy, 0))
@@ -27,7 +32,7 @@ function lensMap(width: number, height: number, radius: number) {
       const nx = corner ? Math.max(qx, 0) / corner : Number(qx >= qy)
       const ny = corner ? Math.max(qy, 0) / corner : Number(qy > qx)
       const bend = 27 * Math.max(0, 1 - Math.max(0, depth) / 19) ** 2
-      const i = 4 * (y * width + x)
+      const i = 4 * (y * canvas.width + x)
       pixels.data[i] = 128 + (Math.sign(dx) * nx * bend - dx * zoom) * 255 / displacementScale
       pixels.data[i + 1] = 128 + (Math.sign(dy) * ny * bend - dy * zoom) * 255 / displacementScale
       pixels.data[i + 3] = 255 * Math.min(1, Math.max(0, depth + 0.5))
@@ -37,97 +42,74 @@ function lensMap(width: number, height: number, radius: number) {
   return canvas.toDataURL()
 }
 
-type LensBounds = { left: number, top: number, width: number, height: number, radius: number }
+type Lens = { width: number; height: number; map: string }
 
-export function LiquidGlass({ children, className, style, onHeightChange, backdrop = false }: {
-  children?: ReactNode, backdrop?: boolean, className: string, style?: CSSProperties, onHeightChange?: (height: number) => void
+export function LiquidGlass({ children, className, style, onHeightChange, decorative = false }: {
+  children?: ReactNode, decorative?: boolean, className: string, style?: CSSProperties, onHeightChange?: (height: number) => void
 }) {
-  const id = useId()
-  const filterId = backdrop ? 'glass-' + id.replace(/[^a-zA-Z0-9_-]/g, '') : 'place-glass'
+  const filterId = 'glass-' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const surface = useRef<HTMLDivElement>(null)
-  const [bounds, setBounds] = useState<LensBounds>()
+  const [lens, setLens] = useState<Lens>()
   useLayoutEffect(() => {
     const element = surface.current
-    const frame = backdrop ? element : element?.closest('.earth-frame')
-    if (!element || !frame) return
-    const filterTarget = backdrop ? element : frame.querySelector('.globe') ?? frame
+    if (!element) return
+
+    // Match Lenso's native SVG backdrop path. WebKit and Gecko keep the CSS blur.
+    const nativeRefraction = /Chrom(?:e|ium)\//.test(navigator.userAgent)
+    if (!nativeRefraction && !onHeightChange) return
+    const opaque = matchMedia(opaqueGlass)
+    let nearby = false
     let pending = 0
-    const measure = () => {
-      const box = element.getBoundingClientRect()
-      const origin = filterTarget.getBoundingClientRect()
-      const width = element.offsetWidth, height = element.offsetHeight
-      const radius = Math.min(parseFloat(getComputedStyle(element).borderTopLeftRadius), width / 2, height / 2)
-      const next = { left: box.left - origin.left, top: box.top - origin.top, width, height, radius }
-      setBounds(old => old && old.left === next.left && old.top === next.top && old.width === width &&
-        old.height === height && old.radius === radius ? old : next)
-      onHeightChange?.(height)
-    }
-    const trackAnimation = () => {
-      cancelAnimationFrame(pending)
-      measure()
-      if (frame.getAnimations({ subtree: true }).some(animation => animation.playState === 'running')) {
-        pending = requestAnimationFrame(trackAnimation)
+    const prepare = () => {
+      window.clearTimeout(pending)
+      if (!nativeRefraction || opaque.matches || !nearby) {
+        setLens(undefined)
+        return
       }
+      const width = element.offsetWidth, height = element.offsetHeight
+      if (!width || !height) { setLens(undefined); return }
+      const radius = Math.min(parseFloat(getComputedStyle(element).borderTopLeftRadius), width / 2, height / 2)
+      // Only size affects this local field. Scrolling and orbiting move the lens
+      // with its element without reading globe coordinates or rebuilding the map.
+      pending = window.setTimeout(() => {
+        const key = width + ':' + height + ':' + radius
+        let map = lensMaps.get(key)
+        if (!map) {
+          map = lensMap(width, height, radius)
+          if (!map) return
+          if (lensMaps.size >= 12) lensMaps.delete(lensMaps.keys().next().value!)
+          lensMaps.set(key, map)
+        }
+        setLens({ width, height, map })
+      }, 0)
     }
-    const observer = new ResizeObserver(measure)
-    observer.observe(element)
-    if (backdrop) {
-      measure()
-      return () => observer.disconnect()
-    }
-    observer.observe(filterTarget)
-    const anchorObserver = new MutationObserver(measure)
-    for (let node = element.parentElement; node && node !== frame; node = node.parentElement) {
-      anchorObserver.observe(node, { attributes: true, attributeFilter: ['style'] })
-    }
-    frame.addEventListener('animationstart', trackAnimation)
-    trackAnimation()
+    const resize = new ResizeObserver(() => {
+      onHeightChange?.(element.offsetHeight)
+      prepare()
+    })
+    resize.observe(element, { box: 'border-box' })
+    if (!nativeRefraction) return () => resize.disconnect()
+    const visibility = new IntersectionObserver(([entry]) => {
+      nearby = entry.isIntersecting
+      prepare()
+    }, { rootMargin: '128px' })
+    visibility.observe(element)
+    opaque.addEventListener('change', prepare)
     return () => {
-      anchorObserver.disconnect()
-      observer.disconnect()
-      frame.removeEventListener('animationstart', trackAnimation)
-      cancelAnimationFrame(pending)
+      window.clearTimeout(pending)
+      visibility.disconnect()
+      resize.disconnect()
+      opaque.removeEventListener('change', prepare)
     }
-  }, [style?.left, style?.top, onHeightChange, backdrop])
-  const materialStyle = backdrop && bounds
-    ? { ...style, '--glass-refraction': `url("#${filterId}")` } as CSSProperties
-    : style
-  return <div aria-hidden={backdrop || undefined} ref={surface} className={'liquid-glass ' + className} style={materialStyle}>
-    {bounds && <GlassLens {...bounds} id={filterId}/>}
+  }, [onHeightChange])
+  const materialStyle = lens ? { ...style, '--glass-refraction': `url("#${filterId}")` } as CSSProperties : style
+  return <div aria-hidden={decorative || undefined} ref={surface} className={'liquid-glass ' + className} style={materialStyle}>
+    {lens && <svg aria-hidden="true" width="0" height="0" className="globe-glass-filter">
+      <defs><filter id={filterId} filterUnits="userSpaceOnUse" x="0" y="0" width={lens.width} height={lens.height} colorInterpolationFilters="sRGB">
+        <feImage href={lens.map} x="0" y="0" width={lens.width} height={lens.height} preserveAspectRatio="none" result="offsets"/>
+        <feDisplacementMap in="SourceGraphic" in2="offsets" scale={displacementScale} xChannelSelector="R" yChannelSelector="G"/>
+      </filter></defs>
+    </svg>}
     {children}
   </div>
-}
-
-function GlassLens({ left, top, width, height, radius, id }: LensBounds & { id: string }) {
-  const key = width + ':' + height + ':' + radius
-  const [generated, setGenerated] = useState<{ key: string; map: string }>()
-  const map = generated?.key === key ? generated.map : lensMaps.get(key)
-  useEffect(() => {
-    if (!width || !height || map) return
-    // Rasterize after the glass and destination content have painted. Identical
-    // controls reuse the bitmap even when their position or route changes.
-    let timer = 0
-    const frame = requestAnimationFrame(() => {
-      timer = window.setTimeout(() => {
-        const bitmap = lensMaps.get(key) ?? lensMap(width, height, radius)
-        if (!bitmap) return
-        if (lensMaps.size >= 12) lensMaps.delete(lensMaps.keys().next().value!)
-        lensMaps.set(key, bitmap)
-        setGenerated({ key, map: bitmap })
-      }, 0)
-    })
-    return () => { cancelAnimationFrame(frame); window.clearTimeout(timer) }
-  }, [width, height, radius, key, map])
-  if (!map) return null
-  const bounds = { x: left, y: top, width, height }
-  return <svg aria-hidden="true" width="0" height="0" className="globe-glass-filter">
-    <defs><filter id={id} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
-      <feImage href={map} {...bounds} preserveAspectRatio="none" result="lens"/>
-      <feDisplacementMap in="SourceGraphic" in2="lens" {...bounds} scale={displacementScale}
-        xChannelSelector="R" yChannelSelector="G" result="bent"/>
-      <feComposite in="bent" in2="lens" operator="in" result="inside"/>
-      <feComposite in="SourceGraphic" in2="lens" operator="out" result="outside"/>
-      <feMerge><feMergeNode in="outside"/><feMergeNode in="inside"/></feMerge>
-    </filter></defs>
-  </svg>
 }

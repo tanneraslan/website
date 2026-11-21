@@ -15,7 +15,6 @@
   --ink: #f5f5f7;
   --muted: #a7a8ae;
   --line: rgb(255 255 255 / .13);
-  --link: #83baff;
   --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--page);
   color: var(--ink);
@@ -27,7 +26,8 @@ body { margin: 0 }
 .site {
   isolation: isolate;
   --lenso-font-body: var(--sans);
-  --lenso-link: var(--link);
+  --link: var(--lenso-tint);
+  --lenso-link: var(--lenso-tint);
   --lenso-control-switch-on: #686a70;
   font-family: var(--sans);
   color: var(--ink);
@@ -37,17 +37,19 @@ body { margin: 0 }
   flex-direction: column;
   overflow: clip;
   --gutter: clamp(20px, 5vw, 84px);
+  --masthead-height: 74px;
+  --reading-width: min(calc(100% - 2 * var(--gutter)), 45rem);
 }
 .star-sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
 button, input { font: inherit }
 button { cursor: pointer }
 button:disabled { cursor: default }
-a { color: var(--link); text-underline-offset: .18em }
-:focus-visible { outline: 2px solid var(--link); outline-offset: 4px }
+a { color: var(--lenso-link); text-underline-offset: .18em }
+:focus-visible { outline: 2px solid var(--lenso-link); outline-offset: 4px }
 .skip-link { position: fixed; left: 16px; top: 8px; z-index: 10; background: var(--surface); padding: 10px 16px; border-radius: 12px; transform: translateY(-160%) }
 .skip-link:focus { transform: none }
 .masthead { width: min(calc(100% - 2 * var(--gutter)), 1380px); margin-inline: auto; display: flex; justify-content: space-between; align-items: center; gap: 20px }
-.masthead { min-height: 74px; border-bottom: 1px solid var(--line); position: relative; z-index: 3 }
+.masthead { min-height: var(--masthead-height); border-bottom: 1px solid var(--line); position: relative; z-index: 3 }
 .masthead [data-kind=brand] { display: inline-flex; align-items: center; gap: 9px; color: var(--ink) !important; font-size: 17px; font-weight: 620; letter-spacing: -.045em; text-decoration: none }
 .mobile-dock { display: none }
 .mark { display: block; width: 32px; height: 32px; object-fit: contain }
@@ -55,12 +57,15 @@ a { color: var(--link); text-underline-offset: .18em }
 .masthead nav a { padding: 8px 13px; border-radius: 20px !important; font-size: 14px; color: #b5b6bd !important; text-decoration: none; font-weight: 470; white-space: nowrap }
 .masthead nav a:is(:hover,[aria-current]) { color: var(--ink) !important; background: #ffffff10 }
 @media (min-width: 761px) {
-  /* Reserve the masthead's original space when it becomes a floating bar. */
-  .masthead-slot { flex: 0 0 74px; }
+  .masthead-slot {
+    --masthead-inset: 12px;
+    flex: 0 0 var(--masthead-height); min-height: var(--masthead-height);
+    padding-top: var(--masthead-inset);
+  }
+  .masthead { min-height: 52px; padding: 6px 10px 6px 20px; }
   .masthead[data-floating] {
-    position: fixed; inset: 12px 0 auto; z-index: 6;
-    width: calc(100% - 2 * var(--gutter)); min-height: 52px;
-    padding: 6px 10px 6px 20px; border: 0; border-radius: 28px;
+    position: fixed; inset: var(--masthead-inset) 0 auto; z-index: 6;
+    border-bottom-color: transparent; border-radius: 28px;
   }
   .masthead-glass {
     position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
@@ -68,8 +73,8 @@ a { color: var(--link); text-underline-offset: .18em }
   .home .home-story { min-height: calc(100svh - 64px); align-content: start; }
 }
 @media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
-  .masthead[data-floating] { animation: masthead-arrive 180ms ease-out both; }
-  @keyframes masthead-arrive { from { opacity: 0; transform: translateY(-8px); } }
+  .masthead-glass { animation: masthead-glass-arrive 180ms ease-out; }
+  @keyframes masthead-glass-arrive { from { opacity: 0; } }
 }
 .composition { width: min(calc(100% - 2 * var(--gutter)), 1380px); margin-inline: auto; flex: 1; }
 .site h1, .site h2, .site h3 { color: var(--ink); text-wrap: balance }
@@ -90,17 +95,31 @@ a { color: var(--link); text-underline-offset: .18em }
 .actions { display: flex; align-items: center; gap: 24px; margin-top: 32px }
 .actions a { font-weight: 550; font-size: 15px }
 .actions [data-kind=primary] { padding: 12px 21px; border-radius: 99px !important; color: #151518 !important; background: #f5f5f7; text-decoration: none }
-.observatory { position: relative; min-width: 0; width: 100% }
+/* Keep pins, labels and orbit controls in the globe's own stacking context. */
+.observatory { position: relative; z-index: 0; min-width: 0; width: 100% }
 .home .observatory { grid-column: 3; grid-row: 1; width: min(62vw, 78svh, 860px); justify-self: center; margin: 16px 0 }
-.earth-frame { position: relative; width: 100%; aspect-ratio: 1 }
+.earth-frame { position: relative; width: 100%; aspect-ratio: 1; transform-origin: top left; }
+.observatory[data-earth-backdrop] {
+  --backdrop-size: clamp(34rem, 82vw, 74rem);
+  position: fixed; z-index: -1; pointer-events: none;
+  width: var(--backdrop-size); left: calc(-.37 * var(--backdrop-size));
+  top: calc(48svh - var(--backdrop-size) / 2);
+}
+.observatory[data-earth-backdrop] > :is(.earth-frame, .orbit-viewport) { filter: blur(clamp(22px, 3vw, 40px)); opacity: .58; }
+@media (prefers-reduced-motion: no-preference) {
+  .observatory:not([data-map-clouds]):not(:has(.flight-viewport)) > :is(.earth-frame, .orbit-viewport) {
+    transition: filter .6s ease, opacity .6s ease;
+  }
+}
+.reading .star-sky { opacity: .42; }
 .globe, .planet-poster, .canvas-host, .canvas-host canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
 .globe > .planet-poster { width: calc(100% / var(--orbit-extent, 1)); height: auto; margin: auto; }
 .earth-frame > :is(.globe, .place-map) {
   inset: calc((1 - var(--orbit-extent, 1)) * 50%) auto auto calc((1 - var(--orbit-extent, 1)) * 50%);
   width: calc(100% * var(--orbit-extent, 1)); height: calc(100% * var(--orbit-extent, 1));
 }
-.site:has(.orbit-control) .footer,
-.atlas:has(.orbit-control) .page-copy { position: relative; z-index: 3; }
+.footer,
+.atlas .page-copy { position: relative; z-index: 1; }
 .home-location { position: absolute; z-index: 2; width: 0; height: 0; pointer-events: none; }
 .home-location::after {
   content: ''; position: absolute; width: 7px; height: 7px; border-radius: 50%;
@@ -135,11 +154,11 @@ a { color: var(--link); text-underline-offset: .18em }
   color: #fff;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .home-location-badge { animation: pin-arrive 680ms 160ms both; }
+  .home-location-badge { animation: pin-arrive 680ms 160ms backwards; }
   @keyframes pin-arrive {
-    0% { opacity: 0; transform: translate(-50%, -18px) scale(.88); }
-    68% { opacity: 1; transform: translate(-50%, 2px) scale(1.025); }
-    100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    0% { transform: translate(-50%, -18px) scale(.88); }
+    68% { transform: translate(-50%, 2px) scale(1.025); }
+    100% { transform: translate(-50%, 0) scale(1); }
   }
 }
 .globe { pointer-events: none }
@@ -169,8 +188,11 @@ a { color: var(--link); text-underline-offset: .18em }
 .orbit-control:active { cursor: grabbing; }
 .orbit-control:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
 .planet-poster, .canvas-host { transition: opacity .20s ease-in-out }
-.home-story { grid-column: 1/-1; grid-row: 2; border-top: 1px solid var(--line); padding: clamp(45px,7vw,100px) 0; display: grid; grid-template-columns: minmax(0, 640px) minmax(210px,380px); justify-content: space-between; align-items: start; gap: clamp(40px,7vw,140px) }
-.home-story { position: relative; z-index: 3; padding-inline: var(--home-gutter); }
+.home-story {
+  grid-column: 1/-1; grid-row: 2; position: relative; z-index: 3; border-top: 1px solid var(--line);
+  padding-block: clamp(45px,7vw,100px); padding-inline: calc((100% - var(--reading-width)) / 2);
+  display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; gap: clamp(32px,4vw,48px);
+}
 .home-story::before {
   content: ""; position: absolute; z-index: -1; pointer-events: none;
   --fade: clamp(40px, 8svh, 80px);
@@ -199,10 +221,15 @@ a { color: var(--link); text-underline-offset: .18em }
     width: calc((min(100% - 2 * var(--gutter), 1380px) - var(--atlas-gap)) / 2);
   }
 }
-.footer { width: min(calc(100% - 2 * var(--gutter)), 45rem); margin: 2rem auto 0; padding-block: clamp(2rem, 6vw, 6rem); border-top: 1px solid var(--line); color: var(--muted); font-size: 14px }
+.footer { width: var(--reading-width); margin: 2rem auto 0; padding-block: clamp(2rem, 6vw, 6rem); border-top: 1px solid var(--line); color: var(--muted); font-size: 14px }
 .footer-row, .footer-contact { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px }
 .footer-row { justify-content: space-between; gap: 12px 24px }
 .footer-email, .footer-contact a { display: inline-flex; align-items: center; gap: 8px }
+.contact-spelling { white-space: nowrap }
+.contact-spelling svg { display: inline-block; vertical-align: -.15em }
+.contact-copy { display: inline-grid; place-items: center; vertical-align: middle; margin-inline-start: .2em; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit }
+.contact-copy:is(:hover,:focus-visible) { background: #ffffff16; color: var(--ink) }
+.contact-status { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap }
 .footer-contact a { min-width: 32px; height: 40px; justify-content: center; color: inherit }
 .footer-contact a:hover, .footer-contact a:focus-visible { color: var(--ink) }
 .footer [data-kind=credits] { position: relative; width: fit-content; margin: 10px 0 0 auto }
@@ -210,8 +237,10 @@ a { color: var(--link); text-underline-offset: .18em }
 .credits-card { position: absolute; bottom: calc(100% + 10px); right: 0; z-index: 4; width: min(290px,80vw); display: grid; gap: 10px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: #1c1c1f; box-shadow: 0 12px 48px #0007 }
 .missing { padding-block: 100px }
 @media (max-width: 760px) {
+  .observatory[data-earth-backdrop] > :is(.earth-frame, .orbit-viewport) { opacity: .45; }
   html { scroll-padding-bottom: calc(90px + env(safe-area-inset-bottom)) }
   .site { padding-bottom: calc(86px + env(safe-area-inset-bottom)) }
+  .footer-contact, .footer-email { flex-basis: 100%; }
   .masthead-slot { display: none }
   .mobile-dock {
     display: block; position: fixed; z-index: 5;

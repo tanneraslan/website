@@ -1,13 +1,13 @@
 import { EnvelopeClosedIcon, GitHubLogoIcon, LinkedInLogoIcon } from '@radix-ui/react-icons'
 import type { ReactNode } from 'react'
-import { contactAddress } from '@/content/contact'
+import { ContactAddress } from './ContactAddress'
 
 export function Footer({ credits }: { credits?: ReactNode }) {
   return <footer className="footer">
     <div className="footer-row">
       <span>© Tanner Aslan {new Date().getUTCFullYear()}</span>
       <div className="footer-contact">
-        <span className="footer-email"><EnvelopeClosedIcon aria-hidden="true"/>{contactAddress}</span>
+        <span className="footer-email"><EnvelopeClosedIcon aria-hidden="true"/><ContactAddress/></span>
         <a href="https://github.com/tanneraslan" aria-label="GitHub"><GitHubLogoIcon aria-hidden="true"/></a>
         <a href="https://www.linkedin.com/in/tanner-aslan/" aria-label="LinkedIn"><LinkedInLogoIcon aria-hidden="true"/></a>
         <a href="https://x.com/tanneraslan" aria-label="X">

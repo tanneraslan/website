@@ -5,7 +5,7 @@ export interface Coordinates {
 
 export const cameraDistanceInRadii = 4
 export const globeDiameterFraction = 0.85
-export const maxOrbitZoom = 2.25
+export const maxOrbitZoom = 6
 // Match the globe camera's terminal ground resolution to an integer Web
 // Mercator tile zoom, using CSS pixels for both renderers.
 export function flightLandingView(latitude: number, frameHeight: number) {

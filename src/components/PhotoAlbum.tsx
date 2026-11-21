@@ -4,12 +4,23 @@ import { Link } from '@lenso/ui/link'
 import { Modal } from '@lenso/ui/modal'
 import { Select } from '@lenso/ui/select'
 import Image from 'next/image'
-import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { AlbumMap, type MappedPicture, type PhotoSpot } from './AlbumMap'
+import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { AlbumMap, type PhotoSpot } from './AlbumMap'
 import type { Coordinates } from '@/earth/locations'
 import { landmarks } from '@/content/albums/landmarks'
 
-type Picture = MappedPicture & { location?: string }
+import { AlbumSheet } from './AlbumSheet'
+import { PhotoStory, type AlbumPicture as Picture } from './PhotoStory'
+import './album-mobile.css'
+
+const narrowQuery = '(max-width: 899px)'
+function subscribeViewport(update: () => void) {
+  const query = matchMedia(narrowQuery)
+  query.addEventListener('change', update)
+  return () => query.removeEventListener('change', update)
+}
+const isNarrow = () => matchMedia(narrowQuery).matches
+const serverViewport = () => false
 type OpenPicture = (image: Picture, trigger: HTMLAnchorElement) => void
 const PhotoContext = createContext<OpenPicture | null>(null)
 
@@ -40,6 +51,9 @@ export function AlbumPhoto({ src, alt = '', title, width, height, 'data-preview'
 // Choose row breaks together so a sparse final row cannot enlarge one portrait.
 function arrangeRows(tiles: HTMLElement[], width: number, gap: number) {
   if (!width) return
+  const minTileWidth = 156
+  const minRowHeight = 120
+  const maxPerRow = Math.max(1, Math.floor((width + gap) / (minTileWidth + gap)))
   const targetHeight = Math.min(260, Math.max(135, width / 4))
   const ratios = tiles.map(tile => Number(tile.dataset.ratio))
   const cost = Array<number>(tiles.length + 1).fill(Infinity)
@@ -47,10 +61,13 @@ function arrangeRows(tiles: HTMLElement[], width: number, gap: number) {
   cost[tiles.length] = 0
   for (let start = tiles.length - 1; start >= 0; start--) {
     let sum = 0
-    for (let end = start; end < tiles.length; end++) {
+    let narrowestRatio = Infinity
+    for (let end = start; end < Math.min(tiles.length, start + maxPerRow); end++) {
       sum += ratios[end]
+      narrowestRatio = Math.min(narrowestRatio, ratios[end])
       const height = (width - (end - start) * gap) / sum
-      if (height <= 0) break
+      // Another photo would shrink every tile, including the narrowest portrait.
+      if (end > start && (height < minRowHeight || height * narrowestRatio < minTileWidth)) break
       const score = Math.log(height / targetHeight) ** 2 + cost[end + 1]
       if (score < cost[start]) {
         cost[start] = score
@@ -69,12 +86,15 @@ function arrangeRows(tiles: HTMLElement[], width: number, gap: number) {
   }
 }
 
-export function PhotoAlbum({ city, heading, children }: { city: Coordinates & { id: string, title: string }, heading: ReactNode, children: ReactNode }) {
+export function PhotoAlbum({ city, heading, meta, children }: { city: Coordinates & { id: string, title: string }, heading: ReactNode, meta: ReactNode, children: ReactNode }) {
   const [spots, setSpots] = useState<PhotoSpot[] | null>(null)
   const [selected, setSelected] = useState('')
-  const [picture, setPicture] = useState<Picture | null>(null)
+  const narrow = useSyncExternalStore(subscribeViewport, isNarrow, serverViewport)
+  const [viewer, setViewer] = useState<{ pictures: Picture[], index: number } | null>(null)
+  const picture = viewer?.pictures[viewer.index]
   const trigger = useRef<HTMLAnchorElement | null>(null)
   const grid = useRef<HTMLDivElement>(null)
+  const previousSelection = useRef(selected)
   useLayoutEffect(() => {
     const groups = new Map<string, PhotoSpot>()
     for (const tile of grid.current?.querySelectorAll<HTMLElement>('.photo-tile[data-latitude][data-longitude]') ?? []) {
@@ -102,27 +122,46 @@ export function PhotoAlbum({ city, heading, children }: { city: Coordinates & { 
       lastWidth = width
     }
     layout(element.getBoundingClientRect().width)
+    if (previousSelection.current !== selected) {
+      previousSelection.current = selected
+      // The drawer scrolls independently. The desktop gallery scrolls with the page.
+      const scroller = isNarrow() ? element.closest('.album-collection') : window
+      scroller?.scrollTo({ top: 0, behavior: 'instant' })
+    }
     const observer = new ResizeObserver(([entry]) => layout(entry.contentRect.width))
     observer.observe(element)
     return () => observer.disconnect()
   }, [children, selected])
-  const open = useCallback<OpenPicture>((image, anchor) => { trigger.current = anchor; setPicture(image) }, [])
+  const open = useCallback<OpenPicture>((image, anchor) => {
+    trigger.current = anchor
+    const pictures: Picture[] = []
+    for (const tile of grid.current?.querySelectorAll<HTMLElement>('.photo-tile:not([hidden])') ?? []) {
+      const src = tile.querySelector('a')?.getAttribute('href')
+      if (src) pictures.push({ src, alt: tile.querySelector('img')?.alt ?? '', location: tile.dataset.location })
+    }
+    const index = pictures.findIndex(item => item.src === image.src)
+    setViewer(index < 0 ? { pictures: [image], index: 0 } : { pictures, index })
+  }, [])
+  const close = () => setViewer(null)
+  const navigate = (delta: number) => setViewer(current => current && {
+    ...current, index: Math.max(0, Math.min(current.pictures.length - 1, current.index + delta)),
+  })
   const point = picture?.location ? landmarks[picture.location] : undefined
   const locations = [
     { value: '', label: 'All photos' },
     ...(spots ?? []).map(spot => ({ value: spot.key, label: `${spot.name} (${spot.pictures.length})` })),
   ]
   return <div className="photo-album">
-    <header className="album-heading">{heading}</header>
     {spots && <AlbumMap city={city} spots={spots} selected={selected} onSelect={setSelected} onOpen={open}/>}
-    <div className="album-collection">
+    <AlbumSheet heading={heading}>
+      {meta}
       {spots && spots.length > 0 && <div className="album-location-filter">
         <div className="album-location-picker">
           <Select.Root items={locations} value={selected} onValueChange={value => setSelected(value ?? '')}>
             <Select.Label>Location</Select.Label>
             <Select.Trigger><Select.Value/><Select.Indicator/></Select.Trigger>
             <Select.Content>
-              <Select.List>
+              <Select.List style={{ maxHeight: 'inherit', overscrollBehaviorY: 'contain' }}>
                 {locations.map(({ value, label }) => <Select.Item key={value} value={value}>
                   <Select.ItemIndicator/><Select.ItemText>{label}</Select.ItemText>
                 </Select.Item>)}
@@ -135,8 +174,10 @@ export function PhotoAlbum({ city, heading, children }: { city: Coordinates & { 
       <PhotoContext.Provider value={open}>
         <div className="album-grid" ref={grid}>{children}</div>
       </PhotoContext.Provider>
-    </div>
-    <Modal open={picture != null} onOpenChange={opened => { if (!opened) setPicture(null) }}>
+    </AlbumSheet>
+    {narrow ? viewer && picture && <PhotoStory city={city.title} picture={picture} index={viewer.index}
+      total={viewer.pictures.length} navigate={navigate} onClose={close}/> :
+    <Modal open={picture != null} onOpenChange={opened => { if (!opened) close() }}>
       <Modal.Backdrop variant="blur"/>
       <Modal.Content size="lg" placement="center" data-photo-dialog="" finalFocus={() => trigger.current}>
         <Modal.Header><Modal.Title>{picture?.alt || city.title}</Modal.Title><Modal.Close aria-label="Close photo"/></Modal.Header>
@@ -146,6 +187,6 @@ export function PhotoAlbum({ city, heading, children }: { city: Coordinates & { 
           </p>}
         </Modal.Body>
       </Modal.Content>
-    </Modal>
+    </Modal>}
   </div>
 }

@@ -17,10 +17,16 @@ import { createEllipsoid, createSurface } from './surface'
 import { loadCityPoints } from './city-points'
 import { createStars } from './stars'
 
-export type EarthPose = 'crescent' | 'experience'
+export type EarthPose = 'crescent' | 'experience' | 'backdrop'
+type OrbitCamera = {
+  view: OrbitView
+  anchor: Vector2
+  focus: Vector2
+}
 export interface EarthOptions {
   initialPose: EarthPose
   sky: HTMLCanvasElement
+  orbitViewport: HTMLElement
   onReady: () => void
   onPresent: () => void
   onError: () => void
@@ -38,7 +44,8 @@ export interface EarthController {
   rotateBy: (longitude: number, latitude: number) => void
   coast: (longitudeSpeed: number, latitudeSpeed: number) => void
   stopCoasting: () => void
-  setPose: (pose: EarthPose) => void
+  getOrbitCamera: () => OrbitCamera
+  setPose: (pose: EarthPose, orbit?: OrbitCamera) => void
   dispose: () => void
 }
 
@@ -46,6 +53,7 @@ const radius = Ellipsoid.WGS84.radii.x
 const cameraDistance = cameraDistanceInRadii * radius
 const northPole = new Vector3(0, 0, 1)
 const orbitTime = 1400
+const orbitCanvasExtent = 2.25
 const coastDecaySeconds = 0.32
 const maxLatitude = Math.PI / 2 - 0.001
 
@@ -106,9 +114,10 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   let flight: (CameraFlight & { place: Coordinates }) | null = null
   let takeoff: { flightStart: number, view: FlightMapView } | null = null
   let pose = options.initialPose
-  let progress = pose === 'experience' ? 1 : 0
+  let progress = pose === 'crescent' ? 0 : 1
   let view = orbitAngles(progress)
   let renderExtent = 1
+  let viewportOrbit = false
   let zoom = 1
   let targetZoom = 1
   let zoomVelocity = 0
@@ -156,6 +165,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   function dispose() {
     if (disposed) return
     disposed = true
+    if (viewportOrbit) host?.appendChild(canvas)
     globeFrame?.style.removeProperty('--orbit-extent')
     globeFrame?.style.removeProperty('--orbit-pan-x')
     globeFrame?.style.removeProperty('--orbit-pan-y')
@@ -172,7 +182,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     window.clearTimeout(animationTimer)
     visibility.disconnect()
     resize.disconnect()
-    window.removeEventListener('scroll', invalidate)
+    window.removeEventListener('scroll', onScroll)
     window.removeEventListener('resize', invalidate)
     sky.hidden = true
     document.removeEventListener('visibilitychange', invalidate)
@@ -198,18 +208,34 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     startView = endView = view
   }
 
-  function movingOnMobile(time: number) {
+  function routeInMotion(time: number) {
+    if (reducedMotion.matches) return false
+    if (globeFrame?.hasAttribute('data-gliding')) return true
+    return time < transitionStart + orbitTime && (startProgress !== targetProgress ||
+      startView.latitude !== endView.latitude || startView.longitude !== endView.longitude)
+  }
+
+  function movingOnMobile(time: number, routeMoving = routeInMotion(time)) {
     return mobile.matches && (flight !== null || time < inputUntil || zoom !== targetZoom ||
-      zoomVelocity !== 0 || coastStartedAt !== null ||
-      (!reducedMotion.matches && startProgress !== targetProgress && time < transitionStart + orbitTime))
+      zoomVelocity !== 0 || coastStartedAt !== null || routeMoving)
   }
 
   function draw(time: number) {
     frame = 0
     if (disposed || document.hidden || !inView || !ready) { lastDraw = 0; return }
     try {
-      // Keep the same sampling grid at both ends of the zoom spring.
-      const extent = flight ? 1 : maxOrbitZoom
+      const backdrop = pose === 'backdrop'
+      const extent = flight || backdrop ? 1 : orbitCanvasExtent
+      // Draw in screen space until the zoom spring fits the destination frame.
+      // A fixed canvas inside the animated frame would inherit its square bounds.
+      const closeOrbit = !flight && Math.max(targetZoom, zoom) > extent
+      if (closeOrbit !== viewportOrbit) {
+        viewportOrbit = closeOrbit
+        const mount = closeOrbit ? options.orbitViewport : host
+        mount?.appendChild(canvas)
+        if (!closeOrbit) camera.clearViewOffset()
+        width = 0
+      }
       if (extent !== renderExtent) {
         renderExtent = extent
         globeFrame?.style.setProperty('--orbit-extent', String(extent))
@@ -217,10 +243,11 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       const w = canvas.clientWidth
       const h = canvas.clientHeight
       if (!w || !h) return
-      const moving = movingOnMobile(time)
+      const routeMoving = routeInMotion(time)
+      const moving = movingOnMobile(time, routeMoving)
       if (wasMoving && !moving) scheduleRefinement()
       wasMoving = moving
-      const pixelBudget = mobile.matches ? (flight ? 680 : 1200) : 1500
+      const pixelBudget = backdrop ? 480 : mobile.matches ? (flight ? 680 : 1200) : 1500
       const dpr = Math.min(window.devicePixelRatio || 1, 1.75, pixelBudget / Math.max(w, h),
         maxViewport[0] / w, maxViewport[1] / h)
       if (w !== width || h !== height || dpr !== renderer.getPixelRatio()) {
@@ -268,21 +295,33 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
           zoomVelocity = 0
         }
       }
+      // The globe and both ends of a photo flight share this off-center framing.
+      const lastX = zoomPan.x, lastY = zoomPan.y
+      zoomPan.copy(zoomFocus).addScaledVector(zoomAnchor, -zoom)
+        .clampLength(0, (zoom - 1) * globeDiameterFraction / 2)
+      if (zoomPan.x !== lastX || zoomPan.y !== lastY) {
+        globeFrame?.style.setProperty('--orbit-pan-x', zoomPan.x * 100 + '%')
+        globeFrame?.style.setProperty('--orbit-pan-y', zoomPan.y * 100 + '%')
+      }
       if (!flight) {
-        // Keep the same projected surface point under the gesture throughout
-        // the spring. At minimum zoom the globe returns to its original framing.
-        const lastX = zoomPan.x, lastY = zoomPan.y
-        zoomPan.copy(zoomFocus).addScaledVector(zoomAnchor, -zoom)
-          .clampLength(0, (zoom - 1) * globeDiameterFraction / 2)
-        if (zoomPan.x !== lastX || zoomPan.y !== lastY) {
-          globeFrame?.style.setProperty('--orbit-pan-x', zoomPan.x * 100 + '%')
-          globeFrame?.style.setProperty('--orbit-pan-y', zoomPan.y * 100 + '%')
-        }
         if (camera.zoom !== zoom) {
           camera.zoom = zoom
           camera.updateProjectionMatrix()
         }
-        composite.disk.value.z = globeDiameterFraction * Math.min(w, h) * zoom / (2 * renderExtent)
+        if (viewportOrbit && globeFrame) {
+          const rect = globeFrame.getBoundingClientRect()
+          const viewport = canvas.getBoundingClientRect()
+          const scale = w / viewport.width
+          const side = rect.width * scale
+          const left = (rect.left + zoomPan.x * rect.width - viewport.left) * scale
+          const top = (rect.top + zoomPan.y * rect.width - viewport.top) * scale
+          const tangent = radius / Math.sqrt(cameraDistance ** 2 - radius ** 2)
+          camera.fov = 2 * MathUtils.radToDeg(Math.atan(tangent / globeDiameterFraction))
+          camera.setViewOffset(side, side, -left, -top, w, h)
+          composite.disk.value.set(left + side / 2, h - top - side / 2, globeDiameterFraction * side * zoom / 2)
+        } else {
+          composite.disk.value.z = globeDiameterFraction * Math.min(w, h) * zoom / (2 * renderExtent)
+        }
       }
       if (view !== nextView || zoom !== previousZoom) {
         view = nextView
@@ -340,11 +379,12 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       const fadeIn = (start: number) => start === Infinity ? 0 : reducedMotion.matches ? 1 : MathUtils.smoothstep(time - start, 0, 450)
       atmosphere.blendMode.opacity.value = surface.uniforms.detailMix.value = fadeIn(lightingAt)
       if (wind && cloudsAt === Infinity) cloudsAt = presented ? time : -Infinity
-      clouds.uniforms.cloudStrength.value = fadeIn(cloudsAt)
+      let orbitClouds = 1 - MathUtils.smoothstep(zoom, 2, 4)
       if (points) points.material.uniforms.lampFade.value = fadeIn(lampsAt)
       const { latitude: lat, longitude: lon } = view
       towardCamera.set(Math.cos(lat)*Math.cos(lon), Math.cos(lat)*Math.sin(lon), Math.sin(lat))
       let distance = cameraDistance
+      let oceanMagnification = zoom
       let cloudOpacity = 0
       let mapReveal = 0
       if (flight) {
@@ -362,6 +402,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
         const dLon = Math.atan2(Math.sin(targetLon - lon), Math.cos(targetLon - lon))
         const targetLat = Math.atan(0.99330562 * Math.tan(MathUtils.degToRad(target.latitude)))
         const aim = MathUtils.smoothstep(progressIn, 0, 0.53)
+        orbitClouds = MathUtils.lerp(orbitClouds, 1, aim)
         const a = MathUtils.lerp(lat, targetLat, aim)
         const b = lon + aim * dLon
         towardCamera.set(Math.cos(a)*Math.cos(b), Math.cos(a)*Math.sin(b), Math.sin(a))
@@ -392,6 +433,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
           const top = MathUtils.lerp(rect.top + zoomPan.y * rect.width, (h - rect.height) / 2, aim)
           camera.setViewOffset(rect.width, rect.height, -left, -top, w, h)
           const magnification = Math.sqrt((cameraDistance ** 2 - radius ** 2) / (distance ** 2 - radius ** 2))
+          oceanMagnification = magnification * opticalZoom * camera.zoom
           composite.disk.value.set(left + rect.width / 2, h - top - rect.height / 2,
             globeDiameterFraction * rect.height / 2 * magnification * opticalZoom * camera.zoom)
           // An inscribed sphere gives a conservative silhouette for the WGS84
@@ -423,8 +465,10 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       if (!reducedMotion.matches && lastDraw) motionSeconds += Math.min(0.1, (time - lastDraw) / 1000)
       lastDraw = time
       surface.uniforms.oceanSeconds.value = motionSeconds
+      surface.uniforms.oceanDetail.value = MathUtils.smoothstep(oceanMagnification, 2, 5)
+      clouds.uniforms.cloudStrength.value = fadeIn(cloudsAt) * orbitClouds
       clouds.mesh.visible = !!wind && clouds.uniforms.cloudStrength.value > 0
-      if (wind) clouds.advance(renderer, wind, time, motionSeconds, moving)
+      if (wind && orbitClouds > 0) clouds.advance(renderer, wind, time, motionSeconds, moving)
       composer.render()
       sky.hidden = mapReveal >= 1
       if (!sky.hidden && drawStars) {
@@ -443,9 +487,10 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
         presented = true
         options.onPresent()
       }
-      if (flight || time < inputUntil || sunSweepStart !== null || zoom !== targetZoom || zoomVelocity !== 0 || coastStartedAt !== null || (startProgress !== targetProgress && t < 1) || (cubeReadyAt !== Infinity && surface.uniforms.cubeMix.value < 1)) invalidate()
       window.clearTimeout(animationTimer)
-      if (!reducedMotion.matches) animationTimer = window.setTimeout(invalidate, 1000 / 30)
+      if (routeMoving || flight || time < inputUntil || sunSweepStart !== null || zoom !== targetZoom ||
+        zoomVelocity !== 0 || coastStartedAt !== null || (cubeReadyAt !== Infinity && surface.uniforms.cubeMix.value < 1)) invalidate()
+      else if (!reducedMotion.matches) animationTimer = window.setTimeout(invalidate, backdrop ? 125 : 1000 / 30)
       else if (realSunlight) animationTimer = window.setTimeout(invalidate, 60000 - Date.now() % 60000)
     } catch (error) {
       console.error('Earth rendering failed.', error)
@@ -468,7 +513,10 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   visibility.observe(canvas)
   const resize = new ResizeObserver(invalidate)
   resize.observe(canvas)
-  window.addEventListener('scroll', invalidate, { passive: true })
+  function onScroll() {
+    if (pose !== 'backdrop') invalidate()
+  }
+  window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('resize', invalidate)
   delete canvas.dataset.earthReady
   canvas.addEventListener('webglcontextlost', fail)
@@ -503,8 +551,10 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   }
 
   function refineTextures() {
-    if (disposed || !ready || movingOnMobile(performance.now())) return
-    const diameter = 0.85 * Math.min(width, height) * renderer.getPixelRatio()
+    if (disposed || !ready || pose === 'backdrop' || movingOnMobile(performance.now())) return
+    const diameter = viewportOrbit && globeFrame
+      ? globeDiameterFraction * globeFrame.clientWidth * zoom * renderer.getPixelRatio()
+      : globeDiameterFraction * Math.min(width, height) * renderer.getPixelRatio()
     const tier = diameter >= 690 ? 2048 : 1024
     if (tier > cubeRequested && renderer.capabilities.maxCubemapSize >= tier) {
       cubeRequested = tier
@@ -592,6 +642,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     flyToPlace(place, timing) {
       if (place && timing) presentationRequested = true
       stopCoasting()
+      if (place && timing && !timing.returning) startView = endView = view
       targetZoom = zoom
       zoomVelocity = 0
       flight = place && timing ? { ...timing, place } : null
@@ -615,7 +666,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       navigationTimer = window.setTimeout(() => {
         navigationTimer = 0
         if (inView) invalidate()
-      }, 150)
+      }, 300)
     },
     observeOrbit(listener) {
       orbitListeners.add(listener)
@@ -672,19 +723,33 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       invalidate()
     },
     stopCoasting,
-    setPose(next) {
+    getOrbitCamera() {
+      return { view: { ...view, zoom }, anchor: zoomAnchor.clone(), focus: zoomFocus.clone() }
+    },
+    setPose(next, orbit) {
       if (disposed) return
       if (next !== pose) {
+        // A fast route commit can land while the dock's selection is still moving.
+        // Its pending navigation timer will invalidate the new pose when it resumes.
         presentationRequested = true
         stopCoasting()
         targetZoom = 1
         pose = next
         startProgress = progress
-        targetProgress = pose === 'experience' ? 1 : 0
+        targetProgress = pose === 'crescent' ? 0 : 1
         endView = orbitAngles(targetProgress)
         const delta = view.longitude - endView.longitude
         startView = { latitude: view.latitude, longitude: endView.longitude + Math.atan2(Math.sin(delta), Math.cos(delta)) }
         transitionStart = performance.now()
+        invalidate()
+      }
+      if (orbit) {
+        stopCoasting()
+        startView = endView = orbit.view
+        targetZoom = zoom = orbit.view.zoom
+        zoomVelocity = 0
+        zoomFocus.copy(orbit.focus)
+        zoomAnchor.copy(orbit.anchor)
         invalidate()
       }
     },

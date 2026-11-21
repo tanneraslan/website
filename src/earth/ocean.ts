@@ -4,7 +4,7 @@ import { atmosphereLightingGLSL } from './atmosphere'
 export const oceanGLSL = `
   ${atmosphereLightingGLSL}
   uniform sampler2D waterNormal, bathymetry;
-  uniform float oceanSeconds;
+  uniform float oceanSeconds, oceanDetail;
   vec3 reorientWave(vec3 base, vec3 wave) {
     vec3 t = base + vec3(0.0, 0.0, 1.0);
     return t * dot(t, wave * vec3(-1.0,-1.0,1.0)) / t.z - wave * vec3(-1.0,-1.0,1.0);
@@ -20,13 +20,20 @@ export const oceanGLSL = `
   }
   vec3 waterSurface(vec3 p, vec3 n) {
     vec3 first = waveLayer(p*2.8, n, oceanSeconds*0.022*vec2(1.0,0.8));
-    vec3 waves = waveLayer(p*6.1, first, oceanSeconds*0.031*vec2(-0.8,-0.3));
+    vec3 waves = first;
+    vec2 drift = oceanSeconds*0.031*vec2(-0.8,-0.3);
+    if (oceanDetail < 1.0) waves = waveLayer(p*6.1, first, drift);
+    if (oceanDetail > 0.0) {
+      // Crossfade fixed world-space frequencies so crests stay put during zoom.
+      vec3 ripples = waveLayer(p*36.6, normalize(mix(n, first, 0.18)), drift);
+      waves = mix(waves, ripples, oceanDetail);
+    }
     return normalize(mix(n, waves, 0.35));
   }
 
   // Port of SphereOcean.applyLighting. Adjust normal strength in the local
   // tangent plane, since the vertical axis changes around an ellipsoid.
-  vec3 lightOcean(vec3 up, vec3 n, vec3 view, vec3 sun, float depthMetres) {
+  vec3 lightOcean(vec3 up, vec3 n, vec3 view, vec3 sun, float depthMetres, float nearbyLand, vec3 imageColor) {
     vec3 tangentNormal = n - up * dot(n, up);
     vec3 fresnelNormal = normalize(up * dot(n, up) + 1.35 * tangentNormal);
     float viewCos = clamp(dot(view, fresnelNormal), 0.0, 1.0);
@@ -60,6 +67,24 @@ export const oceanGLSL = `
     float deep = 1.0 - exp(-depthMetres / 650.0);
     vec3 bodyColor = mix(vec3(0.011, 0.047, 0.057), vec3(0.001, 0.005, 0.008), deep);
     vec3 bodyLight = bodyColor * (0.012 + sunlight * incidence);
-    return surfaceLight + bodyLight;
+    // The day image resolves banks and channels more finely than the depth map.
+    // Use its blue-green reflectance to reveal the sunlit bottom in clear shallows.
+    float shelf = 1.0 - smoothstep(20.0, 450.0, depthMetres);
+    float blueGreen = min(imageColor.g, imageColor.b) - 0.85 * imageColor.r;
+    float clearWater = smoothstep(0.003, 0.07, blueGreen);
+    vec3 bankColor = min(vec3(0.10, 0.80, 0.72),
+      vec3(0.012, 0.14, 0.19) + imageColor * vec3(0.16, 1.9, 1.45));
+    bodyLight += shelf * clearWater * bankColor * sunlight * max(dot(up, sun), 0.0);
+    vec3 water = surfaceLight + bodyLight;
+    if (nearbyLand > 0.0) {
+      float shoal = 1.0 - smoothstep(12.0, 300.0, depthMetres);
+      float shore = oceanDetail * smoothstep(0.02, 0.42, nearbyLand);
+      float crest = sin(nearbyLand * 19.0 - oceanSeconds * 1.4 + 9.0 * dot(tangentNormal, sun));
+      float foam = shore * mix(0.25, 0.8, shoal) * smoothstep(-0.65, 0.7, crest);
+      vec3 incident = vec3(0.003, 0.005, 0.009) + sunlight * max(dot(up, sun), 0.0);
+      water += shore * shoal * vec3(0.015, 0.12, 0.11) * incident;
+      water = mix(water, vec3(0.78, 0.88, 0.86) * incident, foam);
+    }
+    return water;
   }
 `

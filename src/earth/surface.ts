@@ -33,7 +33,7 @@ export function createSurface(atmosphere: EarthAtmosphere) {
       detailMix: { value: 0 },
       day: { value: null }, night: { value: null }, elevation: { value: null },
       dayCube: { value: null }, cubeMix: { value: 0 },
-      bathymetry: { value: null }, waterNormal: { value: null }, oceanSeconds: { value: 0 },
+      bathymetry: { value: null }, waterNormal: { value: null }, oceanSeconds: { value: 0 }, oceanDetail: { value: 0 },
       sunDirection: { value: new Vector3() }
     },
     vertexShader: `
@@ -131,7 +131,14 @@ export function createSurface(atmosphere: EarthAtmosphere) {
         if (openWater > 0.001) {
           float encoded = textureGrad(bathymetry, geoUV, uvDx, uvDy).r;
           vec3 wave = waterSurface(surfacePosition / 6378137.0, normal);
-          vec3 waterLight = lightOcean(normal, wave, view, sunDirection, 11000.0 * encoded * encoded);
+          float nearbyLand = 0.0;
+          if (oceanDetail > 0.0) {
+            // A coarser mip gives the fraction of land around this water pixel.
+            // Keep its geographic footprint consistent across relief resolutions.
+            float coastMip = log2(float(textureSize(elevation, 0).x) / 768.0);
+            nearbyLand = 1.0 - textureLod(elevation, geoUV, coastMip).b;
+          }
+          vec3 waterLight = lightOcean(normal, wave, view, sunDirection, 11000.0 * encoded * encoded, nearbyLand, color);
           radiance = mix(radiance, waterLight, openWater);
         }
         gl_FragColor = vec4(mix(baseLight, radiance, detailMix) * groundOpacity, groundOpacity);

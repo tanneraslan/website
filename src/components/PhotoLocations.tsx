@@ -27,6 +27,7 @@ export function PhotoLocations({ children }: { children: ReactNode }) {
         if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey &&
           event.target instanceof Element && event.target.closest('a[href]')) panel.current?.hidePopover()
       }}>{children}</nav>
+      <a className="locations-credits" href="/earth/data/credits.txt">Imagery credits</a>
     </div>
   </div>
 }

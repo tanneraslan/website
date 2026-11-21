@@ -41,12 +41,13 @@ export const lampVertexGLSL = `
     float scale = cityDarkness(sunDot - offset);
     // Map Sebastian's world (radius 150) to meters, enlarging diameter 3x for orbit.
     lamp.diameter = mix(3.15, 24.6, intensity) * 0.01 * (6378137.0 / 150.0) * 3.0 * scale;
-    lamp.center = lampCenter + viewDir * (350.0 + 2200.0 * intensity);
+    lamp.center = lampCenter;
     // Cap the solid core at three CSS pixels, then fade its emitting area
     // as the camera resolves the footprint. The texture carries the local glow.
     float depth = -(viewMatrix * vec4(lamp.center, 1.0)).z;
     float diameterPx = lamp.diameter * focalLengthPx / max(depth, 1.0);
     lamp.diameter *= lampFade * (3.0 / max(3.0, diameterPx)) * (1.0 - smoothstep(3.0, 16.0, diameterPx));
+    lamp.diameter *= smoothstep(0.0, 0.045, lamp.viewCos);
     lamp.color = mix(vec3(0.6431373, 0.41890523, 0.0),
                      vec3(1.0, 0.92440695, 0.6839622) * 1.75, intensity);
     return lamp;
@@ -54,13 +55,17 @@ export const lampVertexGLSL = `
 
 function lampMaterial() {
   return new ShaderMaterial({
-    transparent: true, depthWrite: false,
+    // The convex globe occludes lamps at its horizon. Comparing the depth of
+    // a flat camera-facing sprite against terrain clips its edges during orbit.
+    // Clouds are drawn over the lamps in the next transparent draw.
+    transparent: true, depthTest: false, depthWrite: false,
     uniforms: { groundOpacity: { value: 1 }, focalLengthPx: { value: 1 }, lampFade: { value: 0 }, sunDirection: { value: new Vector3(1, 0, 0) }, viewportPx: { value: new Vector2(1, 1) } },
     vertexShader: `
       varying vec3 lampColor;
       uniform vec2 viewportPx;
       varying vec2 offsetPx;
-      varying float radiusPx;
+      varying float filterWidth;
+      varying float areaPx;
       ${lampVertexGLSL}
       void main() {
         Lamp lamp = sampleLamp();
@@ -69,8 +74,10 @@ function lampMaterial() {
           return;
         }
         gl_Position = projectionMatrix * viewMatrix * vec4(lamp.center, 1.0);
-        radiusPx = 0.25 * lamp.diameter * viewportPx.y * projectionMatrix[1][1] / gl_Position.w;
-        offsetPx = position.xy * (max(radiusPx, 1.0) + 0.75);
+        float radiusPx = 0.25 * lamp.diameter * viewportPx.y * projectionMatrix[1][1] / gl_Position.w;
+        areaPx = 3.14159265 * radiusPx * radiusPx;
+        filterWidth = sqrt(2.25 + areaPx);
+        offsetPx = position.xy * (filterWidth + 0.5);
         gl_Position.xy += 2.0 * offsetPx * gl_Position.w / viewportPx;
         lampColor = lamp.color;
       }`,
@@ -78,12 +85,18 @@ function lampMaterial() {
       uniform float groundOpacity;
       varying vec3 lampColor;
       varying vec2 offsetPx;
-      varying float radiusPx;
+      varying float filterWidth;
+      varying float areaPx;
+      vec2 tentIntegral(vec2 x) {
+        vec2 tail = max(1.0 - abs(x), 0.0);
+        return 0.5 + 0.5 * sign(x) * (1.0 - tail * tail);
+      }
       void main() {
-        // Spread a subpixel disc over adjacent samples, preserving its emitting area.
-        float r = max(radiusPx, 1.0);
-        float coverage = 1.0 - smoothstep(r - 0.75, r + 0.75, length(offsetPx));
-        gl_FragColor = vec4(lampColor, groundOpacity * coverage * radiusPx * radiusPx / (r*r + 0.1125));
+        // Integrate over each pixel so a moving lamp distributes the same
+        // total energy at a pixel center and at a four-pixel intersection.
+        vec2 coverage = tentIntegral((offsetPx + 0.5) / filterWidth)
+                      - tentIntegral((offsetPx - 0.5) / filterWidth);
+        gl_FragColor = vec4(lampColor, groundOpacity * areaPx * coverage.x * coverage.y);
       }`
   })
 }

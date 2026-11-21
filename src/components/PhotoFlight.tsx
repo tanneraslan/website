@@ -1,6 +1,6 @@
 'use client'
 
-import { warmFlightImagery } from '@/earth/flight-imagery'
+import { warmAlbumPreview } from '@/earth/flight-imagery'
 import NextLink from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
@@ -47,12 +47,11 @@ export function PhotoFlightProvider({ children }: { children: ReactNode }) {
       ? { ...city, origin, href: path, startedAt: startedAt - (path === '/photos' ? mapFlightDuration : albumRouteAt), revealAt: null } : null)
   }, [path])
   const depart = useCallback((place: Destination, takeoff?: FlightMapView) => {
+    warmAlbumPreview(place.href)
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
       router.push(place.href)
       return
     }
-    const frame = document.querySelector('.photos .earth-frame')
-    if (frame) warmFlightImagery(place, frame.getBoundingClientRect().height)
     router.prefetch(place.href)
     setFlight({ ...place, origin: path, startedAt: performance.now(), revealAt: null, takeoff })
   }, [path, router])
@@ -104,7 +103,11 @@ export function PhotoDestinationLink({ place, ...props }: Omit<ComponentProps<ty
   useEffect(() => {
     rememberAlbum?.(href === '/photos' ? path : href, { latitude, longitude })
   }, [path, href, latitude, longitude, rememberAlbum])
-  return <NextLink prefetch={false} {...props} href={place.href} onNavigate={event => {
+  return <NextLink prefetch={false} {...props} href={place.href}
+    onPointerEnter={event => { props.onPointerEnter?.(event); warmAlbumPreview(href) }}
+    onFocus={event => { props.onFocus?.(event); warmAlbumPreview(href) }}
+    onPointerDown={event => { props.onPointerDown?.(event); warmAlbumPreview(href) }}
+    onNavigate={event => {
     if (!trip || matchMedia('(prefers-reduced-motion: reduce)').matches) return
     event.preventDefault()
     if (!trip.flight || trip.flight.revealAt !== null) trip.depart(place)

@@ -84,14 +84,14 @@ export function AlbumMap({ city, spots, selected, onSelect, onOpen }: {
     const { view } = engine
     let lastZoom = view.getZoom()!
     let sampledAt = performance.now(), rate = 0, returning = false
-    const finish = () => {
-      if (returning || view.getInteracting() || rate >= 0 ||
-        lastZoom > Math.max(view.getMinZoom(), engine.overviewZoom() - 2)) return
+    const finish = (zoom: number) => {
+      // Fractional wheel steps can settle just above the two-level boundary.
+      if (returning || !Number.isFinite(zoom) || zoom > Math.max(view.getMinZoom(), engine.overviewZoom - 2) + 0.01) return
       returning = true
       const [lng, lat] = engine.toLonLat(view.getCenter()!)
       const now = performance.now()
-      depart({ latitude, longitude, href: '/photos' }, { latitude: lat, longitude: lng, zoom: lastZoom, sampledAt: now,
-        zoomRate: rate * Math.exp(-Math.max(0, now - sampledAt - 50) / 150) })
+      depart({ latitude, longitude, href: '/photos' }, { latitude: lat, longitude: lng, zoom, sampledAt: now,
+        zoomRate: Math.min(0, rate) * Math.exp(-Math.max(0, now - sampledAt - 50) / 150) })
     }
     const sample = () => {
       const now = performance.now(), zoom = view.getZoom()!
@@ -101,13 +101,16 @@ export function AlbumMap({ city, spots, selected, onSelect, onOpen }: {
       rate = elapsed <= 160 && Math.sign(speed) === Math.sign(rate) ? rate * 0.35 + speed * 0.65 : speed
       lastZoom = zoom
       sampledAt = now
-      finish()
+      if (speed < 0) finish(zoom)
     }
+    // At the map's minimum zoom another outward wheel step has no resolution event.
+    const wheel = (event: WheelEvent) => { if (event.deltaY > 0) finish(view.getZoom()!) }
+    const viewport = engine.map.getViewport()
     view.on('change:resolution', sample)
-    engine.map.on('moveend', finish)
+    viewport?.addEventListener('wheel', wheel, { passive: true })
     return () => {
       view.un('change:resolution', sample)
-      engine.map.un('moveend', finish)
+      viewport?.removeEventListener('wheel', wheel)
     }
   }, [engine, depart, inFlight, latitude, longitude])
 
@@ -199,7 +202,7 @@ export function AlbumMap({ city, spots, selected, onSelect, onOpen }: {
   useEffect(() => {
     if (!engine) return
     engine.select(selected)
-    if (spot) engine.focus(engine.fromLonLat([spot.longitude, spot.latitude]), Math.max(engine.view.getZoom()!, 15), 650)
+    if (spot) engine.focus(engine.fromLonLat([spot.longitude, spot.latitude]), Math.max(engine.view.getZoom()!, engine.photoDetailZoom), 650)
     else if (lastSelection.current) engine.overview(650)
     lastSelection.current = selected
   }, [engine, selected, spot])
@@ -210,7 +213,7 @@ export function AlbumMap({ city, spots, selected, onSelect, onOpen }: {
       {showMapTilerLogo && <a className="maptiler-credit" href="https://www.maptiler.com/"><img src="https://api.maptiler.com/resources/logo.svg" width="90" alt="MapTiler"/></a>}
     </div>
     {spot && engine && createPortal(<div className="spot-preview">
-      <LiquidGlass backdrop className="spot-preview-glass"/>
+      <LiquidGlass decorative className="spot-preview-glass"/>
       <strong>{spot.name}</strong>
       <div className="spot-preview-strip">{spot.pictures.map((picture, i) =>
         <a key={picture.src + i} href={picture.src} aria-label={'Open ' + picture.alt} onClick={event => {
@@ -219,6 +222,6 @@ export function AlbumMap({ city, spots, selected, onSelect, onOpen }: {
           onOpen({ ...picture, location: spot.name }, event.currentTarget)
         }}><img alt={picture.alt} src={'/_next/image?url=' + encodeURIComponent(picture.src) + '&w=128&q=75'}/></a>)}</div>
     </div>, engine.popupHost)}
-    {failed && <p className="map-status" role="status">Map imagery is unavailable. You can still browse the photos below.</p>}
+    {failed && <p className="map-status" role="status">Detailed map imagery is unavailable.</p>}
   </section>
 }

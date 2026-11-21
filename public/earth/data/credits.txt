@@ -24,3 +24,9 @@ https://github.com/tanneraslan/webgl-engine
 Ocean depth: ETOPO 2022 as above. The bathymetry channel encodes sqrt(depth in metres / 11000), clamped to [0,1].
 Wind: NOAA GFS, 2016-11-20 00:00 UTC, packed east/north velocity from Mapbox's webgl-wind example. Used for artistic motion, independent of the static cloud coverage map.
 https://github.com/mapbox/webgl-wind/tree/master/demo/wind
+
+Album map previews: EOxCloudless by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2016 and 2017), CC BY 4.0.
+https://cloudless.eox.at/
+https://maps.eox.at/
+https://creativecommons.org/licenses/by/4.0/
+The region and city WebP images are cropped, resampled exports of the s2cloudless_3857 layer, centered on each album in EPSG:3857. They cover squares 800 km and 64 km wide in projected metres.

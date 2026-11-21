@@ -86,8 +86,12 @@ export function GlobePins({ pins, width, height, selected, onSelect }: {
     const header = site?.querySelector<HTMLElement>('.masthead')
     const dock = site?.querySelector<HTMLElement>('.mobile-dock')
     const viewport = window.visualViewport
+    let pending = 0
     const measure = () => {
+      cancelAnimationFrame(pending)
       const rect = map.getBoundingClientRect()
+      if (!rect.width) return
+      const toLocal = map.clientWidth / rect.width
       const viewportLeft = viewport?.offsetLeft ?? 0
       const viewportTop = viewport?.offsetTop ?? 0
       const viewportRight = viewportLeft + (viewport?.width ?? document.documentElement.clientWidth)
@@ -98,17 +102,18 @@ export function GlobePins({ pins, width, height, selected, onSelect }: {
       const tabs = dock?.getBoundingClientRect()
       // The map extends beyond the globe for zooming. Convert the usable
       // viewport into the same local coordinates as its projected pins.
-      const left = Math.max(rect.left, viewportLeft) - rect.left
-      const right = Math.min(rect.right, viewportRight) - rect.left
-      const top = Math.max(rect.top, viewportTop, navBottom) - rect.top
-      const bottom = Math.min(rect.bottom, viewportBottom, tabs?.height ? tabs.top : Infinity) - rect.top
+      const left = (Math.max(rect.left, viewportLeft) - rect.left) * toLocal
+      const right = (Math.min(rect.right, viewportRight) - rect.left) * toLocal
+      const top = (Math.max(rect.top, viewportTop, navBottom) - rect.top) * toLocal
+      const bottom = (Math.min(rect.bottom, viewportBottom, tabs?.height ? tabs.top : Infinity) - rect.top) * toLocal
       setCardBounds(old => old?.left === left && old.right === right && old.top === top && old.bottom === bottom
         ? old : { left, right, top, bottom })
+      if (frame.hasAttribute('data-gliding')) pending = requestAnimationFrame(measure)
     }
     const resize = new ResizeObserver(measure)
     for (const element of [map, frame, header, dock]) if (element) resize.observe(element)
     const mutation = new MutationObserver(measure)
-    mutation.observe(frame, { attributes: true, attributeFilter: ['style'] })
+    mutation.observe(frame, { attributes: true, attributeFilter: ['style', 'data-gliding'] })
     if (header) mutation.observe(header, { attributes: true, attributeFilter: ['data-floating'] })
     window.addEventListener('scroll', measure, { passive: true })
     window.addEventListener('resize', measure)
@@ -116,6 +121,7 @@ export function GlobePins({ pins, width, height, selected, onSelect }: {
     viewport?.addEventListener('scroll', measure)
     measure()
     return () => {
+      cancelAnimationFrame(pending)
       resize.disconnect()
       mutation.disconnect()
       window.removeEventListener('scroll', measure)
@@ -173,7 +179,11 @@ export function GlobePins({ pins, width, height, selected, onSelect }: {
           <LiquidGlass className="home-location-label pin-label">{place.title}</LiquidGlass>}
       </PhotoDestinationLink> : <Button size="sm" isIconOnly variant="borderless" data-place-pin=""
         aria-label={`${place.title}, ${place.location}`} aria-pressed={place.id === selected}
-        onClick={() => onSelect?.(place.id)}><span className="place-pin-dot" aria-hidden="true"/></Button>}
+        onClick={() => onSelect?.(place.id)}>
+        {place.logo
+          ? <span className="employer-pin-badge"><img src={place.logo} alt="" width="22" height="22" draggable={false}/></span>
+          : <span className="place-pin-dot" aria-hidden="true"/>}
+      </Button>}
     </div>)}
     {active && cardStyle && <LiquidGlass onHeightChange={setCardHeight} className="place-callout" style={cardStyle}>
       <a className="experience-link" href={`#${active.place.id}`} aria-label={`${active.place.action}: ${active.place.title}, ${active.place.location}`}>

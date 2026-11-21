@@ -2,6 +2,10 @@
 .place-anchor { position:absolute; width:0; height:0; }
 .place-map [data-place-pin] { position:absolute; top:0; min-width:38px; width:38px; height:38px; min-height:38px; display:grid; place-content:center; padding:0; border:0; border-radius:50%; transform:translate(-50%,-50%); background:transparent; pointer-events:auto; }
 .place-pin-dot { display:block; background:white; width:9px; height:9px; border-radius:50%; box-shadow:0 0 0 2px #171b25c2,0 1px 5px #0009; }
+.employer-pin-badge { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; background: #20242bf2; box-shadow: 0 0 0 1px #ffffff88, 0 2px 5px #0006; }
+.employer-pin-badge img { display: block; object-fit: contain; border-radius: 0; }
+.place-map button[data-place-pin]:has(.employer-pin-badge) { border-radius: 9px; overflow: visible; }
+[data-place-pin][aria-pressed=true] .employer-pin-badge { box-shadow: 0 0 0 2px #83baff, 0 2px 5px #0008; }
 [data-place-pin][aria-pressed=true] .place-pin-dot { width:12px; height:12px; background:#63b2ff; box-shadow:0 0 0 2px white,0 1px 5px #0009; }
 .place-callout { position: absolute; overflow: auto; overflow-wrap: anywhere; pointer-events: auto; border-radius: 18px; color: #fff; }
 .experience-link { display: block; padding: 12px 15px 14px; border-radius: inherit; color: inherit; text-decoration: none; }
@@ -28,20 +32,24 @@
 .resume-entry p { margin:.3rem 0; }
 .resume-document [data-place-link] { color:var(--link,#65aaff); }
 html:has(.site.photos) { overscroll-behavior-y: none; }
-.site.photos { height: 100dvh; min-height: 0; }
+.site.photos { height: 100dvh; min-height: 0; padding-bottom: 0; }
+.photos .masthead-slot { position: absolute; inset: 0 0 auto; z-index: 4; }
 .photos.atlas .composition {
+  --globe-clearance: 74px;
   position: relative; display: grid; grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, min(66svh, 840px, calc(100vw - 2 * var(--gutter)))) auto;
-  align-content: center; justify-items: center; min-height: 0; padding-block: min(2dvh, 16px); gap: 0;
+  grid-template-rows: 1fr minmax(0, min(66svh, 840px, calc(100vw - 2 * var(--gutter)), calc(100% - 2 * var(--globe-clearance)))) 1fr;
+  justify-items: center; min-height: 0; padding: 0; gap: 0;
 }
 .photos.atlas .observatory {
-  position: relative; top: auto; grid-row: 1;
+  position: relative; top: auto; grid-row: 2;
   height: 100%; width: auto; aspect-ratio: 1; margin: 0;
 }
-.photos .footer { flex: none; margin-top: 0; padding-block: min(1.5dvh, 16px); }
+@media (max-width: 760px) {
+  .photos.atlas .composition { --globe-clearance: calc(130px + env(safe-area-inset-bottom)); }
+}
 .sr-photo-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .photos.atlas .page-copy { display: contents; }
-.photo-index { position: relative; z-index: 3; text-align: center; }
+.photo-index { position: relative; grid-row: 3; align-self: start; z-index: 3; text-align: center; }
 .photo-index [data-locations-trigger] {
   padding-inline: 18px; border-radius: 99px; border: 1px solid #55565d;
 }
@@ -71,6 +79,7 @@ html:has(.site.photos) { overscroll-behavior-y: none; }
 .locations-panel nav a:is(:hover, :focus-visible) { background: #34353a; }
 .locations-panel nav a:focus-visible { outline-offset: -2px; }
 .locations-panel nav img { flex: none; object-fit: contain; }
+.locations-credits { align-self: start; margin: 4px 20px 16px; color: var(--muted); font-size: .8rem; }
 .locations-panel small { display: block; margin-top: 2px; color: #bec0c7; font-size: .8rem; font-weight: 400; }
 @media (max-width: 520px) {
   .locations-panel {
@@ -89,14 +98,15 @@ html:has(.site.photos) { overscroll-behavior-y: none; }
 .place-anchor:has(> .album-pin) { z-index: 0; }
 .place-anchor:has(> .album-pin:focus-visible) { z-index: 1; }
 .place-anchor:has(> .album-pin:hover) { z-index: 2; }
-.area-gallery { padding-block: clamp(28px,5vw,72px); }
-.album-title { display: flex; align-items: center; gap: .22em; }
+.area-gallery { padding-block: clamp(28px,5vw,72px); font-size: 1rem; }
+.area-gallery .album-title { display: flex; align-items: center; gap: .3em; font-size: 1.75rem; letter-spacing: -.035em; }
 .album-title img { flex: none; width: 1.15em; height: 1.15em; object-fit: contain; }
 .area-gallery [data-kind=all-places] { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: .75rem; }
 .area-gallery .album-meta {
   display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.25rem;
   color: var(--muted); margin: 1rem 0 clamp(24px,3vw,44px);
 }
+.area-gallery :is([data-kind=all-places], .album-meta a) { font-size: inherit; }
 .photo-location { margin: .75rem 0 0; text-align: center; }
 .album-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px; }
 .album-grid > p { display: contents; }
@@ -116,7 +126,10 @@ html:has(.site.photos) { overscroll-behavior-y: none; }
 .place-map { transition: opacity 150ms ease; }
 .place-map[data-flying] { opacity: 0; }
 .place-map[data-flying] [data-place-pin] { pointer-events: none; }
-.canvas-host.flight-viewport { position: fixed; inset: 0; z-index: 2; }
+.canvas-host.orbit-viewport, .canvas-host.flight-viewport { position: fixed; inset: 0; }
+.canvas-host.orbit-viewport { pointer-events: none; }
+.canvas-host.orbit-viewport:empty { visibility: hidden; }
+.canvas-host.flight-viewport { z-index: 2; }
 .landmark-badge { position: absolute; bottom: 68%; left: 50%; width: clamp(26px, 2.8vw, 36px); transform: translateX(-50%); }
 .landmark-art { position: relative; aspect-ratio: 5 / 6; transform-origin: 50% calc(100% + 8px); }
 .landmark-art::before { content: ""; position: absolute; inset: auto 0 0; aspect-ratio: 1; border-radius: 50%; background: white; pointer-events: none; }
