@@ -1,9 +1,9 @@
 import {
-  LinearFilter, Mesh, NoBlending, OrthographicCamera, PlaneGeometry, RedFormat, RepeatWrapping, Scene,
+  NearestFilter, Mesh, NoBlending, OrthographicCamera, PlaneGeometry, RedFormat, RepeatWrapping, Scene,
   ShaderMaterial, LinearMipmapLinearFilter, WebGLRenderTarget, type Texture, type WebGLRenderer
 } from 'three'
 
-import { createCloudParticles } from './cloud-particles'
+import { createCloudParticles, particleSeedGLSL, particleSide } from './cloud-particles'
 
 export function createCloudFlow(anisotropy: number) {
   const target = new WebGLRenderTarget(1, 1, {
@@ -12,8 +12,8 @@ export function createCloudFlow(anisotropy: number) {
   })
   target.texture.anisotropy = anisotropy
   const particles = createCloudParticles()
-  const density = new WebGLRenderTarget(1, 1, {
-    format: RedFormat, depthBuffer: false, minFilter: LinearFilter, wrapS: RepeatWrapping
+  const mass = new WebGLRenderTarget(particleSide, particleSide, {
+    format: RedFormat, depthBuffer: false, minFilter: NearestFilter, magFilter: NearestFilter
   })
   const material = new ShaderMaterial({
     blending: NoBlending, depthTest: false, depthWrite: false,
@@ -22,13 +22,11 @@ export function createCloudFlow(anisotropy: number) {
       previous: { value: null as Texture | null }, change: { value: 1 }
     },
     vertexShader: `
-      varying vec2 coord;
-      void main() { coord = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+      void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`,
     fragmentShader: `
       uniform sampler2D source, previous;
       uniform float change;
-      varying vec2 coord;
-      const float pi = 3.14159265;
+      ${particleSeedGLSL}
       float hash(vec3 p) {
         p = fract(p * 0.1031);
         p += dot(p, p.yzx + 33.33);
@@ -43,11 +41,19 @@ export function createCloudFlow(anisotropy: number) {
         vec4 x = mix(a, b, f.x);
         return mix(mix(x.x,x.y,f.y), mix(x.z,x.w,f.y), f.z);
       }
+      float emission(sampler2D image, vec2 uv) {
+        // Average the map over a particle spacing to avoid undersampling narrow cloud bands.
+        float spacing = sqrt(4.0*pi) / float(side);
+        float latitude = (uv.y - 0.5) * pi;
+        return textureGrad(image, uv, vec2(spacing/(2.0*pi*max(cos(latitude), 0.1)), 0.0),
+          vec2(0.0, spacing/pi)).r;
+      }
       void main() {
-        vec2 uv = coord;
+        ivec2 cell = ivec2(gl_FragCoord.xy);
+        vec2 uv = seedUV(cell.y * side + cell.x);
         float cap = 1.0 - smoothstep(0.125, 0.16, min(uv.y, 1.0-uv.y));
-        float density = textureLod(source, uv, 0.0).r;
-        if (change < 1.0) density = mix(textureLod(previous, uv, 0.0).r, density, change);
+        float density = emission(source, uv);
+        if (change < 1.0) density = mix(emission(previous, uv), density, change);
         if (cap > 0.0) {
           // The provider mirrors these latitudes. Spherical detail has no
           // longitude singularity and gives the unobserved caps a soft fill.
@@ -71,21 +77,20 @@ export function createCloudFlow(anisotropy: number) {
       const u = material.uniforms
       const lastTarget = renderer.getRenderTarget()
       try {
-        // Rebuild the source density only when imagery, its crossfade, or resolution changes.
-        if (density.width !== width || u.source.value !== source || u.previous.value !== previous || u.change.value !== blend) {
-          target.setSize(width, width / 2)
-          density.setSize(width, width / 2)
+        target.setSize(width, width / 2)
+        // One scalar per emitter. Only the particle sprites draw into the coverage map.
+        if (u.source.value !== source || u.previous.value !== previous || u.change.value !== blend) {
           u.source.value = source
           u.previous.value = previous
           u.change.value = blend
-          renderer.setRenderTarget(density)
+          renderer.setRenderTarget(mass)
           renderer.render(scene, camera)
         }
-        particles.render(renderer, wind, density.texture, target, seconds)
+        particles.render(renderer, wind, mass.texture, target, seconds)
       } finally {
         renderer.setRenderTarget(lastTarget)
       }
     },
-    dispose() { particles.dispose(); density.dispose(); target.dispose(); geometry.dispose(); material.dispose() }
+    dispose() { particles.dispose(); mass.dispose(); target.dispose(); geometry.dispose(); material.dispose() }
   }
 }
