@@ -1,3 +1,4 @@
+import { oceanGLSL } from './ocean'
 import { Geodetic } from '@takram/three-geospatial'
 import { nightLightingGLSL } from './night-lighting'
 import { cityTwilightGLSL } from './city-points'
@@ -26,7 +27,8 @@ export function createSurface() {
     uniforms: {
       day: { value: null }, night: { value: null }, relief: { value: null },
       dayCube: { value: null }, cubeMix: { value: 0 },
-      textureCores: { value: 1 }, groundGlowStrength: { value: 1 }, sunDirection: { value: new Vector3() }
+      bathymetry: { value: null }, waterNormal: { value: null }, oceanSeconds: { value: 0 },
+      sunDirection: { value: new Vector3() }
     },
     vertexShader: `
       varying vec3 surfacePosition;
@@ -37,9 +39,10 @@ export function createSurface() {
     fragmentShader: `
       uniform sampler2D day, night, relief;
       uniform samplerCube dayCube;
-      uniform float cubeMix, textureCores, groundGlowStrength;
+      uniform float cubeMix;
       uniform vec3 sunDirection;
       varying vec3 surfacePosition;
+      ${oceanGLSL}
       ${cityTwilightGLSL}
       ${nightLightingGLSL}
       void main() {
@@ -62,6 +65,18 @@ export function createSurface() {
         vec2 slope = (2.0 * material.rg - 1.0) * (1.0 - material.b);
         vec3 terrainNormal = normalize(east * slope.x + north * slope.y +
           normal * sqrt(max(0.001, 1.0 - dot(slope, slope))));
+        // Preserve bright sea ice in the satellite imagery. The ocean mask
+        // supplies fractional coastal coverage and the DEM supplies depth.
+        float openWater = material.b * (1.0 - smoothstep(0.16, 0.48, min(color.r,min(color.g,color.b))));
+        vec3 waterN = normal;
+        if (openWater > 0.001) {
+          float encoded = textureGrad(bathymetry, geoUV, uvDx, uvDy).r;
+          float depthMetres = 11000.0 * encoded * encoded;
+          vec3 waterColor = mix(vec3(0.055,0.37,0.40), vec3(0.009,0.055,0.112), 1.0-exp(-depthMetres/650.0));
+          color = mix(color, waterColor, 0.83*openWater);
+          waterN = waterSurface(surfacePosition / 6378137.0, normal);
+          terrainNormal = normalize(mix(terrainNormal, waterN, openWater));
+        }
         float solarElevation = dot(normal, sunDirection);
         float diffuse = max(0.0, dot(terrainNormal, sunDirection));
         vec3 radiance = color * (0.016 + 1.5 * diffuse);
@@ -69,13 +84,10 @@ export function createSurface() {
         vec3 view = normalize(cameraPosition - surfacePosition);
         vec3 halfway = normalize(sunDirection + view);
         float fresnel = 0.022 + 0.978 * pow(1.0 - max(0.0, dot(view, halfway)), 5.0);
-        float glint = pow(max(0.0, dot(normal, halfway)), 95.0) * fresnel;
-        radiance += vec3(1.0, 0.87, 0.68) * glint * material.b * 9.0 *
+        float glint = pow(max(0.0, dot(waterN, halfway)), 95.0) * fresnel;
+        radiance += vec3(1.0, 0.87, 0.68) * glint * openWater * 9.0 *
           smoothstep(0.0, 0.08, solarElevation);
 
-        // The coarse mip carries the light spilled onto the ground. The sharp
-        // channel preserves distinct neighborhoods and the cores of large cities.
-        float lights = textureGrad(night, geoUV, uvDx, uvDy).r;
         // Fixed geographic footprints across base/refined night maps. Blend the
         // two coarse levels to soften cities into the surrounding terrain.
         float urbanMip = log2(float(textureSize(night, 0).x) / 512.0);
@@ -85,8 +97,6 @@ export function createSurface() {
         float localDusk = 0.024 * sin(17.0 * normal.x + 8.0 * normal.z)
           * cos(23.0 * normal.y - 5.0 * normal.z);
         float darkness = cityDarkness(solarElevation + localDusk);
-        float core = smoothstep(0.5, 0.98, lights);
-        vec3 lampColor = mix(vec3(1.0, 0.52, 0.17), vec3(1.25, 1.03, 0.75), core);
         float groundValue = dot(color, vec3(0.2126, 0.7152, 0.0722));
         float nightWeight = nightExposure(solarElevation);
         float landReflectance = 0.012 + 0.070 * sqrt(groundValue);
@@ -97,9 +107,9 @@ export function createSurface() {
         radiance += nightWeight * (moon * vec3(0.51, 0.65, 1.12) + air + cityAir);
 
         float nightRelief = pow(max(dot(normal, terrainNormal), 0.0), 3.0);
-        float groundGlow = groundGlowStrength * spill * (0.30 + pow(groundValue, 0.67))
+        float groundGlow = spill * (0.30 + pow(groundValue, 0.67))
           * nightRelief * (1.0 - material.b);
-        radiance += darkness * (textureCores * 1.35 * lights * lampColor + groundGlow * vec3(1.35, 0.64, 0.22));
+        radiance += darkness * groundGlow * vec3(1.35, 0.64, 0.22);
         gl_FragColor = vec4(radiance, 1.0);
       }`
   })

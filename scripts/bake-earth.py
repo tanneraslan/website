@@ -60,6 +60,14 @@ def color_crop(image, bounds, size):
     return image.resize(size, Image.Resampling.LANCZOS, box=box)
 
 
+def bake_bathymetry(dem):
+    # Encode square-root depth to preserve shelf detail in a single channel.
+    elevation = dem.read(1, out_shape=(512, 1024), resampling=Resampling.average)
+    depth = np.clip(-elevation.astype("float32") / 11000.0, 0, 1)
+    Image.fromarray(np.rint(255 * np.sqrt(depth)).astype("uint8")).save(
+        OUTPUT / "bathymetry.webp", lossless=True, method=6)
+
+
 def relief_map(dem, geometries, bounds, size):
     width, height = size
     west, south, east, north = bounds
@@ -166,6 +174,7 @@ def bake(cache):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     ocean = [f["geometry"] for f in json.loads((cache / "ocean.geojson").read_text())["features"]]
     with Image.open(cache / "day.jpg") as day, rasterio.open(cache / "etopo.tif") as dem:
+        bake_bathymetry(dem)
         base_size = (1024, 512)
         color_crop(day, GLOBAL, base_size).save(OUTPUT / "day.webp", quality=85, method=6)
         relief_map(dem, ocean, GLOBAL, base_size).save(OUTPUT / "relief.webp", lossless=True, method=6)

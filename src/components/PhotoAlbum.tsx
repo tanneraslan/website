@@ -10,17 +10,19 @@ type Picture = { src: string, alt: string }
 type OpenPicture = (image: Picture, trigger: HTMLAnchorElement) => void
 const PhotoContext = createContext<OpenPicture | null>(null)
 
-export function AlbumPhoto({ src, alt = '' }: { src?: string, alt?: string }) {
+export function AlbumPhoto({ src, alt = '', width, height }: { src?: string, alt?: string, width?: number, height?: number }) {
   const open = useContext(PhotoContext)
   if (!src) return null
-  return <span className="photo-tile"><Link href={src} data-photo-thumb=""
+  const ratio = width && height ? width / height : 1
+  const shape = ratio < 0.85 ? 'portrait' : ratio > 2 ? 'panorama' : ratio > 1.25 ? 'landscape' : 'square'
+  return <span className="photo-tile" data-shape={shape}><Link href={src} data-photo-thumb=""
     style={{ position: 'absolute', inset: 0, display: 'block', inlineSize: '100%', blockSize: '100%' }} aria-label={`Open photo: ${alt}`}
     onClick={event => {
       if (!open || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
       event.preventDefault()
       open({ src, alt }, event.currentTarget)
     }}>
-    <Image src={src} alt={alt} fill sizes="(max-width: 600px) 34vw, 180px" />
+    <Image src={src} alt={alt} fill sizes="auto, (max-width: 760px) 90vw, (max-width: 1100px) 44vw, 480px" />
   </Link></span>
 }
 

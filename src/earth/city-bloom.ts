@@ -41,8 +41,7 @@ export class CityBloomPass extends Pass {
         sunDirection: lamps.material.uniforms.sunDirection,
         sourceSize: { value: new Vector2() },
         air: { value: transmittance },
-        cloudMap: clouds.cloudMap, previousCloudMap: clouds.previousCloudMap,
-        cloudBlend: clouds.cloudBlend, cloudStrength: clouds.cloudStrength
+        cloudMap: clouds.cloudMap, cloudStrength: clouds.cloudStrength
       },
       vertexShader: `
         uniform vec2 sourceSize;
@@ -84,10 +83,7 @@ export class CityBloomPass extends Pass {
             vec3 normal = normalize(shell * vec3(1.0, 1.0, 1.0067395));
             vec2 cloudCoord = cloudUV(normal);
             float density = textureLod(cloudMap, cloudCoord, 0.0).r;
-            if (cloudBlend < 1.0) {
-              density = mix(textureLod(previousCloudMap, cloudCoord, 0.0).r, density, cloudBlend);
-            }
-            cover = cloudOpacity(density);
+            cover = cloudOpacity(density, dot(normal, view));
           }
           float sigma = max(0.72, radiusPx * 0.5) * (1.0 + 3.0 * cover);
           float transmittedArea = (1.0 - nightCloudOpacity(cover)) * radiusPx * radiusPx;

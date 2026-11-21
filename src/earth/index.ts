@@ -9,7 +9,7 @@ import {
   SRGBColorSpace, Texture, TextureLoader, Vector3, WebGLRenderer
 } from 'three'
 import { EarthAtmosphere } from './atmosphere'
-import { createClouds, type CloudSource } from './clouds'
+import { createClouds } from './clouds'
 import { CityBloomPass } from './city-bloom'
 import { createComposite } from './composite'
 import { cameraDistanceInRadii, globeDiameterFraction, orbitAngles } from './locations'
@@ -19,21 +19,12 @@ import { loadCityPoints } from './city-points'
 export type EarthPose = 'crescent' | 'experience'
 export interface EarthOptions {
   initialPose: EarthPose
-  onCloudSource?: (source: CloudSource) => void
   onReady: () => void
   onError: () => void
-  onComparisonState?: (state: 'loading' | 'ready' | 'error') => void
-  glassBounds?: () => DOMRect | null
 }
 export interface EarthController {
   observeOrbit: (listener: (progress: number) => void) => () => void
   setPose: (pose: EarthPose) => void
-  setSunOffset: (degrees: number) => void
-  setCompare: (enabled: boolean) => void
-  setClouds: (enabled: boolean) => void
-  setWideAtmosphere: (enabled: boolean) => void
-  setCityBloom: (enabled: boolean) => void
-  setGroundGlow: (enabled: boolean) => void
   dispose: () => void
 }
 
@@ -70,8 +61,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const textures = new Set<Texture>()
   const textureLoader = new TextureLoader()
   const anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy())
-  const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, surface.uniforms.night, anisotropy, invalidate,
-    source => options.onCloudSource?.(source))
+  const clouds = createClouds(globe.geometry, surface.uniforms.sunDirection.value, surface.uniforms.night, anisotropy, invalidate)
   scene.add(clouds.mesh)
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
   const east = new Vector3()
@@ -80,27 +70,25 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   const sunLocal = new Vector3()
   const crescentSun = new Vector3(0.52, 0.16, -0.84).normalize()
   const experienceSun = new Vector3(0.81, 0.34, 0.48).normalize()
-  const localY = new Vector3(0, 1, 0)
   let pose = options.initialPose
   let progress = pose === 'experience' ? 1 : 0
   const orbitListeners = new Set<(progress: number) => void>()
   let startProgress = progress
   let targetProgress = progress
   let transitionStart = 0
-  let sunOffset = 0
-  let compare = false
-  let bloomEnabled = true
-  let bloomPass: CityBloomPass | null = null
   let points: Awaited<ReturnType<typeof loadCityPoints>> | null = null
-  let pointRequest: AbortController | null = null
-  let comparisonReady = false
-  let paneWidth = 0
+  const pointRequest = new AbortController()
   let cubeRequested = 0
   let cubeLoaded = 0
   let cubeReadyAt = Infinity
   let highMapsRequested = false
   let refineTimer = 0
   let frame = 0
+  let wind: Texture
+  let motionSeconds = 0
+  let lastDraw = 0
+  let animationTimer = 0
+  let inView = true
   let ready = false
   let disposed = false
   let width = 0
@@ -111,11 +99,17 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     disposed = true
     cancelAnimationFrame(frame)
     window.clearTimeout(refineTimer)
-    releasePoints()
+    pointRequest.abort()
+    if (points) {
+      scene.remove(points)
+      points.geometry.dispose()
+      points.material.dispose()
+    }
     clouds.dispose()
+    window.clearTimeout(animationTimer)
+    visibility.disconnect()
     resize.disconnect()
     document.removeEventListener('visibilitychange', invalidate)
-    document.removeEventListener('scroll', invalidate, true)
     canvas.removeEventListener('webglcontextlost', fail)
     reducedMotion.removeEventListener('change', invalidate)
     composer.dispose()
@@ -134,29 +128,24 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
 
   function draw(time: number) {
     frame = 0
-    if (disposed || document.hidden || !ready) return
+    if (disposed || document.hidden || !inView || !ready) { lastDraw = 0; return }
     try {
       const w = canvas.clientWidth
       const h = canvas.clientHeight
       if (!w || !h) return
-      const pane = compare ? w * 0.5 : w
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.75, 1500 / Math.max(pane, h),
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.75, 1500 / Math.max(w, h),
         maxViewport[0] / w, maxViewport[1] / h)
-      if (w !== width || h !== height || pane !== paneWidth || dpr !== renderer.getPixelRatio()) {
+      if (w !== width || h !== height || dpr !== renderer.getPixelRatio()) {
         width = w
         height = h
-        paneWidth = pane
         renderer.setPixelRatio(dpr)
-        // All offscreen passes render a complete pane. Only the final pass is
-        // scissored into the shared wide default framebuffer.
-        composer.setSize(pane, h, false)
-        renderer.setSize(w, h, false)
-        camera.aspect = pane / h
+        composer.setSize(w, h, false)
+        camera.aspect = w / h
         // tan(angular radius) projected onto a centered perspective plane.
         const tangent = radius / Math.sqrt(cameraDistance ** 2 - radius ** 2)
         camera.fov = 2 * MathUtils.radToDeg(Math.atan(tangent / (globeDiameterFraction * Math.min(1, camera.aspect))))
         camera.updateProjectionMatrix()
-        composite.viewport.value.set(pane, h)
+        composite.viewport.value.set(w, h)
         scheduleRefinement()
       }
       const t = reducedMotion.matches ? 1 : MathUtils.clamp((time - transitionStart) / orbitTime, 0, 1)
@@ -171,43 +160,25 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
       camera.lookAt(0, 0, 0)
 
       sunLocal.lerpVectors(crescentSun, experienceSun, progress).normalize()
-      sunLocal.applyAxisAngle(localY, -MathUtils.degToRad(sunOffset))
       atmosphere.sunDirection.copy(east).multiplyScalar(sunLocal.x)
         .addScaledVector(north, sunLocal.y).addScaledVector(towardCamera, sunLocal.z)
       surface.uniforms.sunDirection.value.copy(atmosphere.sunDirection)
       points?.updateView(camera.position, atmosphere.sunDirection)
       surface.uniforms.cubeMix.value = reducedMotion.matches && cubeReadyAt !== Infinity
         ? 1 : MathUtils.clamp((time - cubeReadyAt) / 300, 0, 1)
-      clouds.advance(time)
-      const glass = options.glassBounds?.()
-      const bounds = glass ? canvas.getBoundingClientRect() : null
-      renderer.setScissorTest(compare)
-      const paneCount = compare ? 2 : 1
-      for (let i = 0; i < paneCount; i++) {
-        // Integer drawing-buffer edges keep adjacent panes gap-free at fractional DPR.
-        const left = Math.floor(canvas.width * i / paneCount)
-        const right = Math.floor(canvas.width * (i + 1) / paneCount)
-        const x = left / dpr
-        const screenWidth = (right - left + 0.0001) / dpr
-        renderer.setViewport(x + 0.0001 / dpr, 0, screenWidth, h)
-        renderer.setScissor(x + 0.0001 / dpr, 0, screenWidth, h)
-        if (glass && bounds) composite.lens.value.set(glass.left - bounds.left - x, bounds.bottom - glass.bottom, glass.width, glass.height)
-        else composite.lens.value.set(0, 0, 0, 0)
-        surface.uniforms.textureCores.value = i === 0 ? 1 : 0
-        if (points) points.visible = i === 1
-        if (bloomPass) bloomPass.enabled = i === 1 && bloomEnabled
-        composer.render()
-      }
-      if (compare && points && !comparisonReady) {
-        comparisonReady = true
-        options.onComparisonState?.('ready')
-      }
+      if (!reducedMotion.matches && lastDraw) motionSeconds += Math.min(0.1, (time - lastDraw) / 1000)
+      lastDraw = time
+      surface.uniforms.oceanSeconds.value = motionSeconds
+      clouds.advance(renderer, wind, time, motionSeconds)
+      composer.render()
       if (!canvas.dataset.earthReady) {
         canvas.dataset.earthReady = 'true'
         options.onReady()
       }
       clouds.refresh()
       if ((startProgress !== targetProgress && t < 1) || (cubeReadyAt !== Infinity && surface.uniforms.cubeMix.value < 1)) invalidate()
+      window.clearTimeout(animationTimer)
+      if (!reducedMotion.matches) animationTimer = window.setTimeout(invalidate, 1000 / 30)
     } catch (error) {
       console.error('Earth rendering failed.', error)
       fail()
@@ -217,13 +188,19 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
   function invalidate() {
     if (frame === 0 && ready && !disposed && !document.hidden) frame = requestAnimationFrame(draw)
   }
+  const visibility = new IntersectionObserver(([entry]) => {
+    inView = entry.isIntersecting
+    lastDraw = 0
+    if (inView) invalidate()
+    else window.clearTimeout(animationTimer)
+  })
+  visibility.observe(canvas)
   const resize = new ResizeObserver(invalidate)
   resize.observe(canvas)
   delete canvas.dataset.earthReady
   canvas.addEventListener('webglcontextlost', fail)
   reducedMotion.addEventListener('change', invalidate)
   document.addEventListener('visibilitychange', invalidate)
-  if (options.glassBounds) document.addEventListener('scroll', invalidate, { passive: true, capture: true })
 
   function configureTexture(texture: Texture, color: boolean) {
     texture.minFilter = LinearMipmapLinearFilter
@@ -254,7 +231,7 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
 
   function refineTextures() {
     if (disposed || !ready) return
-    const diameter = 0.85 * Math.min(paneWidth, height) * renderer.getPixelRatio()
+    const diameter = 0.85 * Math.min(width, height) * renderer.getPixelRatio()
     const tier = diameter >= 690 ? 2048 : 1024
     if (tier > cubeRequested && renderer.capabilities.maxCubemapSize >= tier) {
       cubeRequested = tier
@@ -293,48 +270,15 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     refineTimer = window.setTimeout(refineTextures, 120)
   }
 
-  function releasePoints() {
-    if (bloomPass) {
-      composer.removePass(bloomPass)
-      bloomPass.dispose()
-      bloomPass = null
+  const cityPoints = loadCityPoints(pointRequest.signal).then(mesh => {
+    if (disposed) {
+      mesh.geometry.dispose()
+      mesh.material.dispose()
+      return
     }
-    pointRequest?.abort()
-    pointRequest = null
-    if (points) {
-      scene.remove(points)
-      points.geometry.dispose()
-      points.material.dispose()
-      points = null
-    }
-    comparisonReady = false
-  }
-
-  function requestPoints() {
-    if (pointRequest || !compare || !ready) return
-    const request = new AbortController()
-    pointRequest = request
-    options.onComparisonState?.('loading')
-    loadCityPoints(request.signal).then(mesh => {
-      if (disposed || request.signal.aborted) {
-        mesh.geometry.dispose()
-        mesh.material.dispose()
-        return
-      }
-      points = mesh
-      scene.add(mesh)
-      if (atmosphere.transmittanceTexture) {
-        bloomPass = new CityBloomPass(camera, mesh, atmosphere.transmittanceTexture, clouds.uniforms)
-        // Surface → aerial perspective → optical bloom → glass and tone mapping.
-        composer.addPass(bloomPass, 2)
-      }
-      invalidate()
-    }).catch(error => {
-      if (request.signal.aborted || disposed) return
-      console.warn('The instanced city lights could not be loaded.', error)
-      options.onComparisonState?.('error')
-    })
-  }
+    points = mesh
+    scene.add(mesh)
+  })
 
   const atmosphereTextures = new Promise<void>((resolve, reject) => {
     const loader = new PrecomputedTexturesLoader({ type: HalfFloatType, higherOrderScattering: false })
@@ -342,19 +286,27 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
     for (const texture of Object.values(tables)) if (texture) textures.add(texture)
     Object.assign(atmosphere, tables)
   })
-  Promise.all([loadMap('day', true), loadMap('night'), loadMap('relief'), atmosphereTextures, clouds.loadSnapshot()])
-    .then(([day, night, relief]) => {
-      if (disposed) return
-      surface.uniforms.day.value = day
-      surface.uniforms.relief.value = relief
-      surface.uniforms.night.value = night
-      ready = true
-      invalidate()
-      requestPoints()
-    }).catch(error => {
-      if (!disposed) console.warn('Earth textures could not be loaded.', error)
-      fail()
-    })
+  Promise.all([
+    loadMap('day', true), loadMap('night'), loadMap('relief'), loadMap('bathymetry'),
+    loadMap('water-normal'), loadMap('wind'), atmosphereTextures, clouds.loadSnapshot(), cityPoints
+  ]).then(([day, night, relief, bathymetry, waterNormal, windField]) => {
+    if (disposed) return
+    waterNormal.wrapT = RepeatWrapping
+    surface.uniforms.waterNormal.value = waterNormal
+    surface.uniforms.bathymetry.value = bathymetry
+    wind = windField
+    surface.uniforms.day.value = day
+    surface.uniforms.relief.value = relief
+    surface.uniforms.night.value = night
+    if (points && atmosphere.transmittanceTexture) {
+      composer.addPass(new CityBloomPass(camera, points, atmosphere.transmittanceTexture, clouds.uniforms), 2)
+    }
+    ready = true
+    invalidate()
+  }).catch(error => {
+    if (!disposed) console.warn('Earth rendering assets could not be loaded.', error)
+    fail()
+  })
 
   return {
     observeOrbit(listener) {
@@ -371,31 +323,6 @@ export async function createEarth(canvas: HTMLCanvasElement, options: EarthOptio
         transitionStart = performance.now()
         invalidate()
       }
-    },
-    setCompare(enabled) {
-      if (disposed || enabled === compare) return
-      compare = enabled
-      if (enabled) requestPoints()
-      else releasePoints()
-      invalidate()
-    },
-    setClouds(enabled) { clouds.setEnabled(enabled) },
-    setWideAtmosphere(enabled) {
-      atmosphere.setWide(enabled)
-      invalidate()
-    },
-    setCityBloom(enabled) {
-      bloomEnabled = enabled
-      invalidate()
-    },
-    setGroundGlow(enabled) {
-      surface.uniforms.groundGlowStrength.value = enabled ? 1 : 0
-      invalidate()
-    },
-    setSunOffset(degrees) {
-      if (!Number.isFinite(degrees) || disposed) return
-      sunOffset = MathUtils.clamp(degrees, -180, 180)
-      invalidate()
     },
     dispose
   }

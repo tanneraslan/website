@@ -1,5 +1,5 @@
 // A fixed gibbous-moon direction in Earth coordinates makes the lighting
-// repeatable while the lab scrubs the sun. All terms are scene-linear.
+// repeatable during camera transitions. All terms are scene-linear.
 export const moonDirectionGLSL = 'const vec3 nightMoonDirection = vec3(-0.4891, -0.8469, 0.2079);'
 
 export const nightLightingGLSL = `

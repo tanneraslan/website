@@ -5,13 +5,9 @@ import { Uniform, type Camera } from 'three'
 const wideScale = 10
 
 export class EarthAtmosphere extends AerialPerspectiveEffect {
-  private readonly limbScale = new Uniform(wideScale)
-
-  setWide(enabled: boolean) { this.limbScale.value = enabled ? wideScale : 1 }
-
   constructor(camera: Camera) {
     super(camera, { sky: true, ground: false, sun: false, moon: false, sunLight: false, skyLight: false })
-    this.uniforms.set('limbScale', this.limbScale)
+    this.uniforms.set('limbScale', new Uniform(wideScale))
 
     // Takram's tables encode the physical Earth. For sky pixels only, move the
     // ray's tangent altitude into that range. A ray grazing the surface stays

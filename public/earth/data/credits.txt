@@ -18,3 +18,9 @@ To regenerate the imagery derivatives, see scripts/bake-earth.py in the source r
 
 Cloud coverage: Contains modified EUMETSAT data. Maps processed by Matt Eason. The bundled fallback was retrieved on 2026-11-20.
 https://github.com/matteason/live-cloud-maps
+
+Water normals: Tanner Aslan's WebGL engine, resources/normalmap.png (downsampled).
+https://github.com/tanneraslan/webgl-engine
+Ocean depth: ETOPO 2022 as above. The bathymetry channel encodes sqrt(depth in metres / 11000), clamped to [0,1].
+Wind: NOAA GFS, 2016-11-20 00:00 UTC, packed east/north velocity from Mapbox's webgl-wind example. Used for artistic motion, independent of the live cloud map.
+https://github.com/mapbox/webgl-wind/tree/master/demo/wind

@@ -15,7 +15,7 @@ export default async function Home() {
       <h1>{title}</h1>
       <p className="lede">{intro}</p>
       <div className="actions">
-        <SiteLink href="/resume" data-kind="primary">View résumé</SiteLink>
+        <SiteLink href="/resume" data-kind="primary">View resume</SiteLink>
         <SiteLink href="/posts">Read the blog</SiteLink>
       </div>
     </section>

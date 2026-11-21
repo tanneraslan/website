@@ -11,5 +11,3 @@
 .swatches [data-swatch=Surface]::before { background: var(--surface) }
 .swatches [data-swatch=Text]::before { background: var(--ink) }
 .swatches [data-swatch=Link]::before { background: var(--link) }
-.sample-frame { display: grid; justify-items: start; align-content: end; gap: 14px; min-height: 200px; padding: 22px; border-radius: 20px; background-color: #030405; background-position: 45% 45%; background-size: cover }
-.sample-frame > a { background-color:#101215d4; padding:4px 10px; border-radius:10px; font-size:14px }

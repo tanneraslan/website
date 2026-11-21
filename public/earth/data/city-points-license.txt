@@ -1,4 +1,4 @@
-City lights for the Earth lab
+City lights for the globe
 
 Placement, light intensity, individual dusk timing and source mesh design:
 Geographical Adventures, Sebastian Lague

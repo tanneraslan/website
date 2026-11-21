@@ -1,4 +1,4 @@
-"""Pack the shipped Geographical Adventures city lights for the Earth lab.
+"""Pack the shipped Geographical Adventures city lights for the globe.
 
     python scripts/pack-city-points.py /path/to/CityLightPoints.json
 """

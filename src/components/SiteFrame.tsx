@@ -1,65 +1,48 @@
 'use client'
 
 import { Disclosure } from '@lenso/ui/disclosure'
-import { EarthLighting } from './EarthLighting'
 import NextLink from 'next/link'
 import { TabBar } from '@lenso/ui/tab-bar'
-import { Switch } from '@lenso/ui/switch'
 import { ThemeScope } from '@lenso/ui'
 import { SiteLink } from './SiteLink'
 import { GlobePlaces, PlaceAtlasProvider } from './PlaceAtlas'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type { EarthPose, EarthController } from '@/earth'
-import type { CloudSource } from '@/earth/clouds'
-import { SunSweep } from './SunSweep'
 import { Icon } from './Icon'
 
 const nav = [
-  ['/', 'Overview', 'ta'], ['/resume', 'Résumé', 'briefcase'], ['/posts', 'Blog', 'book'],
-  ['/photos', 'Photos', 'photos'], ['/music', 'Music', 'music'], ['/earth-lab', 'Earth lab', 'globe'],
+  ['/', 'Overview', 'ta'], ['/resume', 'Resume', 'briefcase'], ['/posts', 'Blog', 'book'],
+  ['/photos', 'Photos', 'photos'], ['/music', 'Music', 'music'],
 ] as const
 
 function isCurrentSection(path: string, href: string) {
   return path === href || (href !== '/' && path.startsWith(href + '/')) || (href === '/posts' && path.startsWith('/tags/'))
 }
 type SceneState = 'loading' | 'live' | 'poster'
-type ComparisonState = 'loading' | 'ready' | 'error'
 
 function Mark() {
   return <span className="mark" aria-hidden="true" />
 }
 
-function Globe({ pose, compare, glass, scene, onState, onComparisonState, onCloudSource }: {
+function Globe({ pose, scene, onState }: {
   pose: EarthPose
-  compare: boolean
-  glass: RefObject<HTMLDivElement | null>
   scene: RefObject<EarthController | null>
-  onCloudSource: (value: CloudSource) => void
   onState: (state: SceneState) => void
-  onComparisonState: (state: ComparisonState) => void
 }) {
   const surface = useRef<HTMLDivElement>(null)
-  const latest = useRef({ pose, compare })
+  const latestPose = useRef(pose)
   const [live, setLive] = useState(false)
-  const [pointsReady, setPointsReady] = useState(false)
   const [hidePoster, setHidePoster] = useState(false)
-  const [hidePointPoster, setHidePointPoster] = useState(false)
   useEffect(() => {
     if (!live) { setHidePoster(false); return }
     const timeout = setTimeout(() => setHidePoster(true), 240)
     return () => clearTimeout(timeout)
   }, [live])
   useEffect(() => {
-    if (!live || !pointsReady || !compare) { setHidePointPoster(false); return }
-    const timeout = setTimeout(() => setHidePointPoster(true), 240)
-    return () => clearTimeout(timeout)
-  }, [live, pointsReady, compare])
-  useEffect(() => {
-    latest.current = { pose, compare }
+    latestPose.current = pose
     scene.current?.setPose(pose)
-    scene.current?.setCompare(compare)
-  }, [pose, compare, scene])
+  }, [pose, scene])
   useEffect(() => {
     const parent = surface.current
     if (!parent) return
@@ -76,20 +59,13 @@ function Globe({ pose, compare, glass, scene, onState, onComparisonState, onClou
         const { createEarth } = await import('@/earth')
         if (stopped) return
         controller = await createEarth(canvas, {
-          initialPose: latest.current.pose,
-          glassBounds: () => glass.current?.getBoundingClientRect() ?? null,
+          initialPose: latestPose.current,
           onReady: () => { if (!stopped) { setLive(true); onState('live') } },
-          onError: fail, onCloudSource,
-          onComparisonState: status => {
-            if (stopped) return
-            setPointsReady(status === 'ready')
-            onComparisonState(status)
-          },
+          onError: fail,
         })
         if (stopped) { controller.dispose(); return }
         scene.current = controller
-        controller.setPose(latest.current.pose)
-        controller.setCompare(latest.current.compare)
+        controller.setPose(latestPose.current)
       } catch { fail() }
     }
     const frame = requestAnimationFrame(() => { void start() })
@@ -100,14 +76,12 @@ function Globe({ pose, compare, glass, scene, onState, onComparisonState, onClou
       controller?.dispose()
       canvas.remove()
     }
-  }, [glass, scene, onState, onComparisonState, onCloudSource])
+  }, [scene, onState])
   // Leave the opening poster underneath until all shaders and base maps have rendered.
-  const description = compare ? 'Two Earths under the same sun, with satellite city lights on the left and instanced lights on the right'
-    : pose === 'crescent' ? 'Earth at night, with city lights and a sunlit crescent' : 'Side-lit Earth centered on North America'
+  const description = pose === 'crescent' ? 'Earth at night, with city lights and a sunlit crescent' : 'Side-lit Earth centered on North America'
   return <div className="globe" role="img" aria-label={description}>
-    {(!live || !hidePoster) && <img className="planet-poster" src={`/earth/${pose}.webp`} alt="" fetchPriority="high" width="1024" height="1024" />}
+    {(!live || !hidePoster) && <img className="planet-poster" src={`/earth/points-${pose}.webp`} alt="" fetchPriority="high" width="1024" height="1024" />}
     <div className="canvas-host" ref={surface} style={{ opacity: live ? 1 : 0 }} />
-    {compare && (!live || !pointsReady || !hidePointPoster) && <img className="planet-poster points-poster" data-fade={live && pointsReady} src={`/earth/points-${pose}.webp`} alt="" width="1024" height="1024" />}
   </div>
 }
 
@@ -128,29 +102,14 @@ function Credits() {
 
 export function SiteFrame({ children }: { children: ReactNode }) {
   const path = usePathname()
-  const glass = useRef<HTMLDivElement>(null)
   const scene = useRef<EarthController | null>(null)
   const isPhotos = path === '/photos'
   const isResume = path === '/resume'
-  const isLab = path === '/earth-lab'
-  const [selection, setSelection] = useState<{ path: string, pose: EarthPose } | null>(null)
   const [state, setState] = useState<SceneState>('loading')
-  const [comparison, setComparison] = useState<ComparisonState>('loading')
-  const [groundGlow, setGroundGlow] = useState(true)
-  const [clouds, setClouds] = useState(true)
-  const [cloudSource, setCloudSource] = useState<CloudSource>('loading')
-  const [wideAtmosphere, setWideAtmosphere] = useState(true)
-  const [pointBloom, setPointBloom] = useState(true)
-  useEffect(() => {
-    scene.current?.setClouds(!isLab || clouds)
-    scene.current?.setWideAtmosphere(!isLab || wideAtmosphere)
-    scene.current?.setGroundGlow(!isLab || groundGlow)
-    scene.current?.setCityBloom(!isLab || pointBloom)
-  }, [isLab, groundGlow, pointBloom, wideAtmosphere, clouds, state, comparison])
   const hasMap = isResume || isPhotos
-  const hasEarth = hasMap || isLab || path === '/'
-  const pose = selection?.path === path ? selection.pose : hasMap ? 'experience' : 'crescent'
-  return <ThemeScope theme="dark"><PlaceAtlasProvider><div className={`site ${isResume ? 'resume atlas' : isPhotos ? 'photos atlas' : isLab ? 'lab' : path === '/' ? 'home' : 'reading'}`}>
+  const hasEarth = hasMap || path === '/'
+  const pose = hasMap ? 'experience' : 'crescent'
+  return <ThemeScope theme="dark"><PlaceAtlasProvider><div className={`site ${isResume ? 'resume atlas' : isPhotos ? 'photos atlas' : path === '/' ? 'home' : 'reading'}`}>
     <a className="skip-link" href="#content">Skip to content</a>
     <header className="masthead">
       <SiteLink href="/" aria-label="Tanner Aslan home" data-kind="brand"><Mark/><span>Tanner Aslan</span></SiteLink>
@@ -169,32 +128,10 @@ export function SiteFrame({ children }: { children: ReactNode }) {
     </div>
     <main id="content" className="composition">
       <div className="page-copy">{children}</div>
-      {hasEarth && <section className="observatory" aria-label={isLab ? 'City light comparison' : 'Earth viewer'}>
+      {hasEarth && <section className="observatory" aria-label="Earth viewer">
         <div className="earth-frame">
-          <Globe pose={pose} compare={isLab} glass={glass} scene={scene} onState={setState} onComparisonState={setComparison} onCloudSource={setCloudSource}/>
+          <Globe pose={pose} scene={scene} onState={setState}/>
           {hasMap && <GlobePlaces scene={scene} pose={pose} live={state === 'live'} />}
-        </div>
-        {isLab && <div className="view-labels"><span>Satellite texture</span><span>Instanced lights</span></div>}
-        <div className="viewer-controls">
-          <EarthLighting glassRef={glass} live={state === 'live'} pose={pose} onChange={pose => setSelection({ path, pose })}/>
-          {isLab && <SunSweep key={pose} scene={scene} enabled={state === 'live' && comparison === 'ready'}/>}
-          {isLab && <div className="lighting-layers" role="group" aria-label="Rendering effects">
-            {([
-              ['Terrain glow', groundGlow, setGroundGlow], ['Point bloom', pointBloom, setPointBloom],
-              ['Wide atmosphere', wideAtmosphere, setWideAtmosphere], ['Clouds', clouds, setClouds],
-            ] as const).map(([label, checked, setChecked]) =>
-              <Switch.Root key={label} size="sm" checked={checked} aria-label={label}
-                disabled={state !== 'live' || (label !== 'Clouds' && comparison !== 'ready')}
-                onCheckedChange={setChecked}>
-                <Switch.Control><Switch.Thumb /></Switch.Control><Switch.Content>{label}</Switch.Content>
-              </Switch.Root>)}
-          </div>}
-          {isLab && clouds && state === 'live' && (cloudSource === 'snapshot' || cloudSource === 'unavailable') &&
-            <small role="status">{cloudSource === 'snapshot' ? 'Clouds · cached map' : 'Cloud map unavailable'}</small>}
-          {isLab && (state === 'poster' || comparison === 'error') && <small role="status">
-            {state === 'poster' ? 'Still imagery · live lighting unavailable' : 'Point data unavailable · showing a still comparison'}
-          </small>}
-
         </div>
       </section>}
     </main>
